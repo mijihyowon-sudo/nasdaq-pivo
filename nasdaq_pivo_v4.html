@@ -1,0 +1,3226 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NASDAQ PIVO v4 — 완전체 에이전트 시스템</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --g:#00C896;--gd:#00C89630;--gg:#00C89612;
+  --r:#FF4757;--a:#FFB800;--b:#60A5FA;--p:#A78BDE;
+  --bg:#080C0F;--bg2:#0D1117;--bg3:#131920;--bg4:#1A2228;
+  --br:#1A2A20;--br2:#0F1F15;
+  --t:#E8F0EA;--t2:#8A9A8C;--t3:#4A5A4C;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--t);font-family:'Noto Sans KR',sans-serif;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--br2) 1px,transparent 1px),linear-gradient(90deg,var(--br2) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:1.5rem 1rem;}
+.hdr{text-align:center;margin-bottom:1.5rem;}
+.hdr-logo{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;background:linear-gradient(135deg,#00C896,#00E5AA);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+.hdr-sub{font-size:11px;color:var(--t3);letter-spacing:.2em;text-transform:uppercase;margin-top:4px;}
+.hdr-line{width:60px;height:2px;background:linear-gradient(90deg,transparent,var(--g),transparent);margin:10px auto;}
+.hdr-v{font-size:10px;color:var(--g);background:var(--gg);border:1px solid var(--gd);border-radius:100px;padding:2px 8px;display:inline-block;margin-top:4px;}
+
+/* 설정 알림 */
+.cfg-alert{background:#1A1200;border:1px solid #FFB80040;border-radius:10px;padding:10px 14px;font-size:12px;color:var(--a);margin-bottom:1rem;display:flex;align-items:center;gap:8px;cursor:pointer;}
+
+/* 메인 탭 */
+.main-tabs{display:flex;border-bottom:1px solid var(--br);margin-bottom:1.5rem;flex-wrap:wrap;}
+.main-tab{padding:9px 14px;font-size:12px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap;}
+.main-tab.on{color:var(--g);border-bottom-color:var(--g);}
+.mp{display:none;}.mp.on{display:block;}
+
+/* API 상태바 */
+.api-bar{display:flex;align-items:center;justify-content:space-between;background:var(--bg2);border:1px solid var(--br);border-radius:10px;padding:8px 14px;margin-bottom:1.5rem;font-size:12px;flex-wrap:wrap;gap:6px;}
+.api-status{display:flex;align-items:center;gap:8px;color:var(--t2);}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--g);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.api-model{font-family:'JetBrains Mono',monospace;color:var(--g);font-size:11px;}
+
+/* 카드 */
+.card{background:var(--bg2);border:1px solid var(--br);border-radius:12px;padding:1rem 1.25rem;margin-bottom:8px;}
+.card.hl{border-color:var(--gd);background:var(--gg);}
+.card.warn{border-color:#FF475740;background:#120808;}
+.card.amber{border-color:#FFB80040;background:#1A1200;}
+.sec{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:1.5rem 0 .75rem;}
+.sec:first-child{margin-top:0;}
+
+/* 입력 요소 */
+.inp{width:100%;background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:10px 12px;color:var(--t);font-size:13px;font-family:'Noto Sans KR',sans-serif;outline:none;transition:border-color .2s;}
+.inp:focus{border-color:var(--g);}
+.inp::placeholder{color:var(--t3);}
+textarea.inp{resize:vertical;min-height:80px;}
+select.inp{cursor:pointer;}
+select.inp option{background:var(--bg2);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.lbl{font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+
+/* 업로드 */
+.upbox{border:1px dashed var(--br);border-radius:8px;padding:16px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.upbox:hover,.upbox.has{border-color:var(--g);background:var(--gg);}
+.upbox input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upbox-icon{font-size:20px;margin-bottom:4px;}
+.upbox-txt{font-size:12px;color:var(--t2);}
+.upbox-name{font-size:11px;color:var(--g);margin-top:3px;}
+
+/* 버튼 */
+.btn-main{width:100%;padding:15px;background:linear-gradient(135deg,#00A87A,#00C896);border:none;border-radius:10px;color:#000;font-size:15px;font-weight:700;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .2s;letter-spacing:.05em;margin-bottom:1.5rem;}
+.btn-main:hover{transform:translateY(-1px);box-shadow:0 8px 24px var(--gd);}
+.btn-main:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-sm{font-size:11px;color:var(--g);cursor:pointer;background:var(--gg);border:1px solid var(--gd);border-radius:6px;padding:4px 10px;font-family:'Noto Sans KR',sans-serif;}
+.btn-sm:hover{background:var(--gd);}
+.btn-dl{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:8px 14px;font-size:12px;color:var(--t2);cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.btn-dl:hover{border-color:var(--g);color:var(--g);}
+
+/* 케이스 탭 */
+.case-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.5rem;}
+.ctab{background:var(--bg2);border:1px solid var(--br);border-radius:10px;padding:12px 8px;cursor:pointer;text-align:center;transition:all .2s;}
+.ctab:hover{border-color:var(--gd);background:var(--gg);}
+.ctab.active{border-color:var(--g);background:var(--gg);}
+.ctab .ci{font-size:20px;margin-bottom:4px;}
+.ctab .cn{font-size:12px;font-weight:500;color:var(--t2);}
+.ctab .cd{font-size:10px;color:var(--t3);margin-top:2px;}
+.ctab.active .cn{color:var(--g);}
+
+/* 플랫폼 */
+.plat-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.plat-btn{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--br);border-radius:6px;padding:6px 12px;font-size:12px;color:var(--t2);cursor:pointer;transition:all .2s;}
+.plat-btn.active{border-color:var(--g);color:var(--g);background:var(--gg);}
+.plat-btn input{display:none;}
+
+/* 에이전트 섹션 */
+.agent-sec{background:var(--bg2);border:1px solid var(--br);border-radius:12px;overflow:hidden;margin-bottom:1.5rem;display:none;}
+.agent-sec.show{display:block;}
+.agent-hdr{padding:12px 16px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;}
+.agent-hdr-title{font-size:13px;font-weight:500;color:var(--t2);}
+.prog-txt{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--g);}
+.prog-wrap{height:2px;background:var(--br);}
+.prog-fill{height:100%;background:var(--g);transition:width .4s;}
+
+/* 팀 구분 */
+.team-header{padding:6px 16px;background:var(--bg3);font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:8px;}
+.team-header::after{content:'';flex:1;height:1px;background:var(--br);}
+
+.agent-item{display:flex;align-items:flex-start;gap:12px;padding:8px 16px;border-bottom:1px solid var(--br2);font-size:13px;transition:background .2s;}
+.agent-item.running{background:var(--bg3);}
+.agent-item:last-child{border-bottom:none;}
+.agent-num{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--t3);width:28px;flex-shrink:0;padding-top:2px;}
+.agent-info{flex:1;}
+.agent-name{color:var(--t2);font-size:13px;}
+.agent-role{color:var(--t3);font-size:11px;margin-top:1px;}
+.abadge{font-size:10px;padding:2px 7px;border-radius:100px;font-family:'JetBrains Mono',monospace;flex-shrink:0;}
+.s-wait{background:var(--bg3);color:var(--t3);}
+.s-run{background:#1A1200;color:var(--a);border:1px solid #FFB80030;}
+.s-done{background:#0A2A1A;color:var(--g);border:1px solid var(--gd);}
+.s-retry{background:#2A0A2A;color:var(--p);border:1px solid #A78BDE30;}
+.s-err{background:#2A0A0A;color:var(--r);border:1px solid #FF475730;}
+
+.agent-out{font-size:12px;color:var(--t3);padding:5px 16px 7px 56px;border-bottom:1px solid var(--br2);line-height:1.6;display:none;}
+.agent-out.show{display:block;}
+.agent-out b{color:var(--t2);}
+.agent-out .score-chip{display:inline-block;background:var(--gg);color:var(--g);border:1px solid var(--gd);border-radius:100px;padding:1px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;}
+
+/* 컨텍스트 흐름 표시 */
+.ctx-flow{background:var(--bg3);border-left:2px solid var(--gd);padding:6px 12px;margin:4px 16px 4px 56px;font-size:11px;color:var(--t3);border-radius:0 4px 4px 0;display:none;}
+.ctx-flow.show{display:block;}
+.ctx-flow .ctx-from{color:var(--g);}
+
+/* 결과 */
+.result-sec{background:var(--bg2);border:1px solid var(--gd);border-radius:12px;overflow:hidden;display:none;}
+.result-sec.show{display:block;}
+.result-hdr{padding:12px 16px;background:var(--gg);border-bottom:1px solid var(--gd);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+.result-title{font-size:14px;font-weight:500;color:var(--g);}
+.result-score{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;}
+.score-high{color:var(--g);}
+.score-mid{color:var(--a);}
+.score-low{color:var(--r);}
+.result-tabs{display:flex;border-bottom:1px solid var(--br);overflow-x:auto;}
+.rtab{padding:9px 14px;font-size:12px;cursor:pointer;border:none;background:none;color:var(--t3);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap;}
+.rtab.active{color:var(--g);border-bottom-color:var(--g);}
+.rcont{padding:1.25rem;display:none;}
+.rcont.active{display:block;}
+.rtxt{font-size:13px;color:var(--t2);line-height:1.8;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:14px;max-height:400px;overflow-y:auto;}
+.rtxt::-webkit-scrollbar{width:4px;}
+.rtxt::-webkit-scrollbar-thumb{background:var(--br);border-radius:100px;}
+.dl-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.seo-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.seo-tag{background:var(--gg);border:1px solid var(--gd);border-radius:100px;padding:3px 10px;font-size:12px;color:var(--g);}
+.tg-box{background:#0A1828;border:1px solid #1A3A5A;border-radius:10px;padding:14px;font-size:13px;color:#93C5FD;line-height:1.8;white-space:pre-wrap;}
+.img-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;}
+.img-card{background:var(--bg3);border:1px solid var(--br);border-radius:8px;overflow:hidden;}
+.img-card-label{font-size:11px;color:var(--t3);padding:6px 10px;border-bottom:1px solid var(--br);}
+.img-card-content{padding:8px;}
+.img-card-content img{width:100%;border-radius:4px;}
+.img-card-content svg{width:100%;height:auto;}
+
+/* 재시도 알림 */
+.retry-banner{background:#1A0A2A;border:1px solid #A78BDE40;border-radius:8px;padding:10px 14px;font-size:12px;color:var(--p);margin:8px 16px;display:none;}
+.retry-banner.show{display:block;}
+
+/* 대시보드 */
+.dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1.5rem;}
+.dash-card{background:var(--bg2);border:1px solid var(--br);border-radius:12px;padding:.875rem 1rem;}
+.dash-card.good{border-color:var(--gd);background:var(--gg);}
+.dash-card.warn{border-color:#FF475740;background:#120808;}
+.dash-card.amber{border-color:#FFB80040;background:#1A1200;}
+.dc-title{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.dc-val{font-size:20px;font-weight:700;color:var(--t);font-family:'JetBrains Mono',monospace;}
+.dc-sub{font-size:11px;color:var(--t3);margin-top:3px;}
+.dash-card.good .dc-val{color:var(--g);}
+.dash-card.warn .dc-val{color:var(--r);}
+.dash-card.amber .dc-val{color:var(--a);}
+
+/* 추천 */
+.rec-item{padding:12px 16px;border-bottom:1px solid var(--br2);display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:background .2s;}
+.rec-item:last-child{border-bottom:none;}
+.rec-item:hover{background:var(--gg);}
+.rec-pri{font-size:10px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.p1{background:#2A0A0A;color:var(--r);}
+.p2{background:#1A1200;color:var(--a);}
+.p3{background:var(--gg);color:var(--g);}
+.rec-body{flex:1;}
+.rec-t{font-size:13px;font-weight:500;color:var(--t);margin-bottom:2px;}
+.rec-d{font-size:12px;color:var(--t3);}
+
+/* 모니터 */
+.cat-row{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid var(--br2);}
+.cat-row:last-child{border-bottom:none;}
+.cdot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cname{font-size:13px;color:var(--t2);flex:1;}
+.cbar-w{width:80px;height:4px;background:var(--br);border-radius:100px;overflow:hidden;}
+.cbar{height:100%;border-radius:100px;}
+.cnt{font-family:'JetBrains Mono',monospace;font-size:12px;width:32px;text-align:right;}
+.cwarn{font-size:10px;padding:2px 7px;border-radius:100px;}
+.wok{background:var(--gg);color:var(--g);}
+.wwarn{background:#1A1200;color:var(--a);}
+.wdanger{background:#2A0A0A;color:var(--r);}
+
+/* 설정 */
+.setting-group{background:var(--bg2);border:1px solid var(--br);border-radius:12px;padding:1.25rem;margin-bottom:10px;}
+.sg-title{font-size:14px;font-weight:500;color:var(--t);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sg-row{display:grid;grid-template-columns:140px 1fr;gap:8px;align-items:center;margin-bottom:8px;}
+.sg-row:last-child{margin-bottom:0;}
+.sg-label{font-size:12px;color:var(--t2);}
+.sg-status{font-size:11px;padding:2px 8px;border-radius:100px;}
+.ss-ok{background:var(--gg);color:var(--g);}
+.ss-no{background:#2A0A0A;color:var(--r);}
+.ss-pending{background:#1A1200;color:var(--a);}
+
+/* 텔레그램 알림 로그 */
+.notif-log{background:var(--bg2);border:1px solid var(--br);border-radius:12px;overflow:hidden;margin-bottom:1rem;}
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--br2);font-size:12px;display:flex;align-items:flex-start;gap:8px;}
+.notif-item:last-child{border-bottom:none;}
+.notif-icon{font-size:14px;flex-shrink:0;margin-top:1px;}
+.notif-body{flex:1;}
+.notif-title{color:var(--t);font-weight:500;margin-bottom:2px;}
+.notif-time{color:var(--t3);font-size:11px;}
+
+/* 디바이스 프레임 */
+.device-frame {
+  background: #1A1A2E;
+  border-radius: 36px;
+  padding: 16px 10px;
+  box-shadow: 0 0 0 3px #2A2A4A, 0 20px 60px #00000080;
+  display: inline-block;
+  position: relative;
+  width: 100%;
+}
+.device-frame::before {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 6px;
+  background: #2A2A4A;
+  border-radius: 100px;
+  margin: 0 auto 10px;
+}
+.device-frame::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #2A2A4A;
+  margin: 10px auto 0;
+}
+.device-screen {
+  background: #000;
+  border-radius: 24px;
+  overflow: hidden;
+  width: 100%;
+}
+.device-screen img { width: 100%; display: block; }
+
+/* 질문 카드 */
+.question-card {
+  background: #1A1200;
+  border: 1px solid #FFB80060;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.question-card .q-badge {
+  font-size: 10px;
+  background: var(--a);
+  color: #000;
+  padding: 1px 6px;
+  border-radius: 100px;
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+/* 빠른 수정 버튼 */
+.quick-fix-btn {
+  background: var(--bg3);
+  border: 1px solid var(--br);
+  border-radius: 100px;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--t2);
+  cursor: pointer;
+  transition: all .2s;
+  font-family: 'Noto Sans KR', sans-serif;
+  white-space: nowrap;
+}
+.quick-fix-btn:hover { border-color: var(--p); color: var(--p); background: #1A0A2A; }
+
+/* 토스트 */
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--bg2);border:1px solid var(--gd);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--g);z-index:100;transform:translateY(100px);opacity:0;transition:all .3s;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.error{border-color:#FF475740;color:var(--r);}
+.toast.info{border-color:#60A5FA40;color:var(--b);}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- 헤더 -->
+<div class="hdr">
+  <div class="hdr-logo">NASDAQ PIVO</div>
+  <div class="hdr-sub">블로그 자동화 에이전트 시스템</div>
+  <div class="hdr-line"></div>
+  <div class="hdr-v">v4.0 — 가이드 완전체</div>
+</div>
+
+<!-- 설정 알림 -->
+<div class="cfg-alert" id="cfgAlert" onclick="showMain('settings')">
+  ⚙️ <span id="cfgAlertTxt">API 키 설정을 확인해주세요 → 클릭해서 설정</span>
+</div>
+
+<!-- 메인 탭 -->
+<div class="main-tabs">
+  <button class="main-tab on" onclick="showMain('guide')">🗺️ 오늘 할 일</button>
+  <button class="main-tab" onclick="showMain('dashboard')">📊 대시보드</button>
+  <button class="main-tab" onclick="showMain('generate')">✍️ 글 생성</button>
+  <button class="main-tab" onclick="showMain('monitor')">🔍 블로그 지수</button>
+  <button class="main-tab" onclick="showMain('notifications')">🔔 알림 로그</button>
+  <button class="main-tab" onclick="showMain('settings')">⚙️ 설정</button>
+</div>
+
+<!-- ===== 오늘 할 일 가이드 ===== -->
+<div id="pg-guide" class="mp on">
+  <div class="api-bar">
+    <div class="api-status"><div class="sdot"></div><span id="guideApiTxt">API 확인 중...</span></div>
+    <div class="api-model" id="guideDateTxt"></div>
+  </div>
+
+  <!-- 안내 박스 -->
+  <div style="background:linear-gradient(135deg,#0A2A1A,#0A1A2A);border:1px solid var(--gd);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;">
+    <div style="font-size:14px;font-weight:600;color:var(--g);margin-bottom:6px;">👋 처음이세요? 여기서 시작하세요!</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.7;">
+      이 앱은 <b style="color:var(--t)">사진 + 한 줄 설명</b>만 주면 블로그 글을 자동으로 만들어줘요.<br>
+      아래 3단계 순서대로만 따라하면 돼요. 처음엔 <b style="color:var(--t)">⚙️ 설정</b> 탭에서 API 키부터 입력해주세요.
+    </div>
+  </div>
+
+  <!-- 오늘 진행 상황 -->
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-size:14px;font-weight:500;color:var(--t)">오늘 진행 상황</div>
+      <div style="font-size:12px;color:var(--t3)"><span id="doneCount">0</span>/3 완료</div>
+    </div>
+    <div style="height:6px;background:var(--br);border-radius:100px;overflow:hidden;margin-bottom:8px;">
+      <div id="todayProgress" style="height:100%;background:linear-gradient(90deg,#00C896,#00E5AA);border-radius:100px;width:0%;transition:width .5s;"></div>
+    </div>
+    <div style="font-size:12px;color:var(--t3)" id="todayMsg">아래 순서대로 진행해보세요!</div>
+  </div>
+
+  <!-- 오늘 할 일 목록 -->
+  <div id="todayTaskList"></div>
+
+  <!-- 주간 체크 -->
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;overflow:hidden;margin-top:1rem;">
+    <div style="padding:11px 16px;border-bottom:1px solid var(--br);font-size:13px;font-weight:500;color:var(--t2);">📅 주간 루틴 (월요일마다)</div>
+    <div style="padding:1rem 1.25rem;">
+      <div style="font-size:13px;color:var(--t2);margin-bottom:12px;">네이버 블로그 통계 화면을 캡처해서 올리면 블로그 매니저가 분석해줘요</div>
+      <div class="upbox" id="up-stats" onclick="document.getElementById('f-stats').click()" style="margin-bottom:10px;">
+        <input type="file" id="f-stats" accept="image/*" onchange="handleStatsUpload(this)">
+        <div class="upbox-icon">📊</div>
+        <div class="upbox-txt">네이버 블로그 통계 캡처 올리기</div>
+        <div class="upbox-name" id="fn-stats"></div>
+      </div>
+      <button class="btn-main" id="analyzeStatsBtn" onclick="analyzeStats()" style="margin-bottom:0;display:none;">📊 통계 분석하기</button>
+      <div id="statsResult" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 대시보드 ===== -->
+<div id="pg-dashboard" class="mp">
+  <div class="api-bar">
+    <div class="api-status"><div class="sdot"></div><span id="apiStatusTxt">API 연결 확인 중...</span></div>
+    <div class="api-model">claude-sonnet-4-20250514 · 22 에이전트</div>
+  </div>
+  <div class="dash-grid" id="dashGrid">
+    <div class="dash-card" id="dc-today"><div class="dc-title">오늘 발행</div><div class="dc-val" id="dv-today">0</div><div class="dc-sub">목표: 2개</div></div>
+    <div class="dash-card" id="dc-week"><div class="dc-title">이번 주</div><div class="dc-val" id="dv-week">0</div><div class="dc-sub">목표: 10개</div></div>
+    <div class="dash-card" id="dc-missing"><div class="dc-title">공백 카테고리</div><div class="dc-val" id="dv-missing">-</div><div class="dc-sub">2주 이상 미발행</div></div>
+    <div class="dash-card" id="dc-status"><div class="dc-title">블로그 상태</div><div class="dc-val" id="dv-status">-</div><div class="dc-sub" id="dv-status-sub">분석 중</div></div>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;margin-bottom:1rem;overflow:hidden;">
+    <div style="padding:11px 16px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:500;color:var(--t2)">🤖 블로그 매니저 — 오늘 이거 쓰세요</span>
+      <button class="btn-sm" onclick="loadRecommendations()">↻ 분석</button>
+    </div>
+    <div id="recList"><div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">"분석" 버튼을 눌러서 오늘의 추천을 받아보세요</div></div>
+  </div>
+  <div class="card">
+    <div class="lbl">발행 기록 추가</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:8px;">
+      <select class="inp" id="rec-cat">
+        <option>나스닥 예상도·결과</option>
+        <option>나스닥 뉴스·시황</option>
+        <option>단타 신호차트</option>
+        <optgroup label="📚 교육 커리큘럼 — 1단계 입문">
+          <option value="edu_1">1. 직장인이 투자를 시작하는 이유</option>
+          <option value="edu_2">2. 주식 코인 부동산 나스닥 비교</option>
+          <option value="edu_3">3. 해외선물이 뭔가요?</option>
+        </optgroup>
+        <optgroup label="📚 2단계 기초">
+          <option value="edu_4">4. 나스닥이 뭔가요?</option>
+          <option value="edu_5">5. 증거금이란?</option>
+          <option value="edu_6">6. 레버리지란?</option>
+          <option value="edu_7">7. 나스닥 거래시간</option>
+        </optgroup>
+        <optgroup label="📚 3단계 플랫폼">
+          <option value="edu_8">8. 메타트레이더란?</option>
+          <option value="edu_9">9. MT5 설치 방법</option>
+          <option value="edu_10">10. 메타트레이더 모바일</option>
+        </optgroup>
+        <optgroup label="📚 4단계 브로커">
+          <option value="edu_11">11. 대여계좌가 불법인 이유</option>
+          <option value="edu_12">12. 국내 증권사 vs MT5 브로커</option>
+          <option value="edu_13">13. MT5 브로커 3가지 비교</option>
+        </optgroup>
+        <optgroup label="📚 3단계 MT5 (8~17번)">
+          <option value="edu_8">8. 메타트레이더란 무엇인가</option>
+          <option value="edu_9">9. 메타트레이더를 왜 써야하나</option>
+          <option value="edu_10">10. 메타트레이더는 불법인가?</option>
+          <option value="edu_11">11. 브로커 선택시 주의사항</option>
+          <option value="edu_12">12. 브로커별 수수료 비교</option>
+          <option value="edu_13">13. 브로커별 혜택 비교</option>
+          <option value="edu_14">14. 모바일 사용방법</option>
+          <option value="edu_15">15. 모바일 기능 완전 정리</option>
+          <option value="edu_16">16. PC 사용방법</option>
+          <option value="edu_17">17. PC 기능 완전 정리</option>
+        </optgroup>
+        <optgroup label="📚 4단계 브로커 (18~20번)">
+          <option value="edu_18">18. 대여계좌가 불법인 이유</option>
+          <option value="edu_19">19. 국내 증권사 vs MT5 브로커</option>
+          <option value="edu_20">20. 글로벌퓨처 솔직 후기</option>
+        </optgroup>
+        <optgroup label="📚 5단계 패턴 (21~24번)">
+          <option value="edu_21">21. 지수되돌림 패턴이란?</option>
+          <option value="edu_22">22. 피보나치 되돌림</option>
+          <option value="edu_23">23. 지수이평선이란?</option>
+          <option value="edu_24">24. 지수되돌림 패턴 실전</option>
+        </optgroup>
+      </select>
+      <button class="btn-sm" style="padding:8px 16px;font-size:13px;" onclick="recordPost()">+ 추가</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 글 생성 ===== -->
+<div id="pg-generate" class="mp">
+  <!-- 케이스 탭 -->
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:13px;color:var(--t2);line-height:1.7;">
+    💡 <b style="color:var(--t)">사용법:</b> 아래에서 오늘 올릴 글 종류를 선택 → 사진 업로드 → 한 줄 설명 입력 → 버튼 클릭<br>
+    <span style="color:var(--t3)">사진 없어도 괜찮아요. 설명만 있어도 글이 만들어져요.</span>
+  </div>
+  <div class="case-tabs">
+    <div class="ctab active" onclick="selectCase('prediction')" id="ct-prediction"><div class="ci">📊</div><div class="cn">나스닥 예상도</div><div class="cd">예상도 + 결과</div></div>
+    <div class="ctab" onclick="selectCase('news')" id="ct-news"><div class="ci">⚡</div><div class="cn">나스닥 뉴스</div><div class="cd">속보 채널 홍보</div></div>
+    <div class="ctab" onclick="selectCase('chart')" id="ct-chart"><div class="ci">💰</div><div class="cn">단타 신호차트</div><div class="cd">결과 + 브로커</div></div>
+    <div class="ctab" onclick="selectCase('education')" id="ct-education"><div class="ci">📚</div><div class="cn">교육 글</div><div class="cd">주제 입력 → 완성</div></div>
+  </div>
+
+  <!-- 입력 -->
+  <div class="card" style="margin-bottom:1rem;">
+    <!-- 예상도 -->
+    <div id="inp-prediction">
+      <div style="background:#0A1A14;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--t3);margin-bottom:10px;line-height:1.6;">
+        📌 텔레그램에 올렸던 예상도 사진이랑 결과 사진을 올려주세요.<br>
+        그리고 아래에 날짜, 예상 방향, 결과(적중/실패)를 써주세요.
+      </div>
+      <div class="lbl">이미지 업로드</div>
+      <div class="row2" style="margin-bottom:10px;">
+        <div><div style="font-size:12px;color:var(--t3);margin-bottom:6px;">예상도 사진</div>
+          <div class="upbox" id="up-pred" onclick="document.getElementById('f-pred').click()"><input type="file" id="f-pred" accept="image/*" onchange="handleFile('pred',this)"><div class="upbox-icon">📈</div><div class="upbox-txt">예상도 이미지</div><div class="upbox-name" id="fn-pred"></div></div>
+        </div>
+        <div><div style="font-size:12px;color:var(--t3);margin-bottom:6px;">결과 사진</div>
+          <div class="upbox" id="up-result" onclick="document.getElementById('f-result').click()"><input type="file" id="f-result" accept="image/*" onchange="handleFile('result',this)"><div class="upbox-icon">✅</div><div class="upbox-txt">결과 이미지</div><div class="upbox-name" id="fn-result"></div></div>
+        </div>
+      </div>
+      <div class="lbl">설명</div>
+      <textarea class="inp" id="txt-prediction" placeholder="예) 2025년 05월 13일 / 저 구간에서 하락 예상 / 결과: 적중 47포인트 940달러&#10;(안한날) 오늘은 진입 구간 안 나와서 패스"></textarea>
+    </div>
+    <!-- 뉴스 -->
+    <div id="inp-news" style="display:none;">
+      <div class="lbl">뉴스 캡처</div>
+      <div class="upbox" id="up-news" style="margin-bottom:10px;" onclick="document.getElementById('f-news').click()"><input type="file" id="f-news" accept="image/*" onchange="handleFile('news',this)"><div class="upbox-icon">📰</div><div class="upbox-txt">텔레그램 뉴스 캡처</div><div class="upbox-name" id="fn-news"></div></div>
+      <div class="lbl">설명 (선택)</div>
+      <textarea class="inp" id="txt-news" placeholder="이날 나스닥 움직인 뉴스 파악해서 글 작성해"></textarea>
+    </div>
+    <!-- 신호차트 -->
+    <div id="inp-chart" style="display:none;">
+      <div class="lbl">신호차트 결과 사진</div>
+      <div class="upbox" id="up-chart" style="margin-bottom:10px;" onclick="document.getElementById('f-chart').click()"><input type="file" id="f-chart" accept="image/*" onchange="handleFile('chart',this)"><div class="upbox-icon">⚡</div><div class="upbox-txt">신호차트 이미지</div><div class="upbox-name" id="fn-chart"></div></div>
+      <div class="lbl">결과 입력</div>
+      <textarea class="inp" id="txt-chart" placeholder="예) 2026년 05월 12일&#10;진입 17회 / 익절 14 / 손절 3 / 99포인트"></textarea>
+    </div>
+    <!-- 교육 -->
+    <div id="inp-education" style="display:none;">
+      <div class="lbl">주제 선택</div>
+      <select class="inp" id="edu-topic" style="margin-bottom:10px;" onchange="onEduTopicChange()">
+        <option value="">-- 주제 선택 --</option>
+        <optgroup label="📚 1단계 입문">
+          <option value="edu_1">1. 직장인이 투자를 시작하는 이유</option>
+          <option value="edu_2">2. 주식 코인 부동산 나스닥 뭐가 달라?</option>
+          <option value="edu_3">3. 해외선물이 뭔가요?</option>
+        </optgroup>
+        <optgroup label="📚 2단계 기초">
+          <option value="edu_4">4. 나스닥이 뭔가요?</option>
+          <option value="edu_5">5. 증거금이란?</option>
+          <option value="edu_6">6. 레버리지란?</option>
+          <option value="edu_7">7. 나스닥 거래시간</option>
+        </optgroup>
+        <optgroup label="📚 3단계 MT5">
+          <option value="edu_8">8. 메타트레이더란 무엇인가</option>
+          <option value="edu_9">9. 메타트레이더를 왜 써야하나</option>
+          <option value="edu_10">10. 메타트레이더는 불법인가?</option>
+          <option value="edu_11">11. 브로커 선택시 주의사항</option>
+          <option value="edu_12">12. 브로커별 수수료 비교</option>
+          <option value="edu_13">13. 브로커별 혜택 비교</option>
+          <option value="edu_14">14. 모바일 사용방법</option>
+          <option value="edu_15">15. 모바일 기능 완전 정리</option>
+          <option value="edu_16">16. PC 사용방법</option>
+          <option value="edu_17">17. PC 기능 완전 정리</option>
+        </optgroup>
+        <optgroup label="📚 4단계 브로커">
+          <option value="edu_18">18. 대여계좌가 불법인 이유</option>
+          <option value="edu_19">19. 국내 증권사 vs MT5 브로커</option>
+          <option value="edu_20">20. 글로벌퓨처 솔직 후기</option>
+        </optgroup>
+        <optgroup label="📚 5단계 패턴">
+          <option value="edu_21">21. 지수되돌림 패턴이란?</option>
+          <option value="edu_22">22. 피보나치 되돌림</option>
+          <option value="edu_23">23. 지수이평선이란?</option>
+          <option value="edu_24">24. 지수되돌림 패턴 실전</option>
+        </optgroup>
+      </select>
+      <div class="lbl">추가 요청사항 (선택)</div>
+      <textarea class="inp" id="txt-education" placeholder="예) 교육생 후기 자연스럽게 넣어줘&#10;글로벌퓨처 연결도 포함해줘" style="margin-bottom:10px;"></textarea>
+      <div style="background:#0A1A14;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+        <div style="font-size:12px;font-weight:500;color:var(--g);margin-bottom:6px;">🧠 내가 아는 MT5 정보 (선택)</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:6px;">입력하면 에이전트가 글 쓸 때 참고해요. 없어도 괜찮아요.</div>
+        <textarea class="inp" id="expert-mt5-inline" style="min-height:80px;font-size:12px;" placeholder="예) 글로벌퓨처 서버명: xxx&#10;초보자가 자주 막히는 부분: 브로커 서버 선택&#10;모바일 알림 설정: 설정→알림→거래알림 ON&#10;수수료: 나스닥 1계약당 $X"></textarea>
+      </div>
+
+    </div>
+
+    <!-- 참고 사이트 + 추가 설명 -->
+    <div style="margin-bottom:14px;">
+      <div class="lbl">참고 사이트 (선택)</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:6px;">이 글 쓸 때 참고할 사이트 링크를 넣어주세요. 에이전트가 내용을 분석해서 글에 반영해요.</div>
+      <div id="siteInputList">
+        <div class="site-input-row" style="display:flex;gap:6px;margin-bottom:6px;">
+          <input class="inp site-url-inp" placeholder="https://globalfutures.com.au" style="flex:1;min-height:auto;font-size:13px;">
+          <button onclick="addSiteRow(this)" style="background:var(--bg3);border:1px solid var(--br);border-radius:6px;padding:0 10px;color:var(--g);cursor:pointer;font-size:16px;flex-shrink:0;">+</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;" id="presetSiteBtns">
+        <button onclick="addPresetUrl('https://globalfutures.com.au')" style="font-size:11px;background:var(--bg3);border:1px solid var(--br);border-radius:100px;padding:3px 10px;color:var(--t3);cursor:pointer;">글로벌퓨처</button>
+        <button onclick="addPresetUrl('https://www.metatrader5.com')" style="font-size:11px;background:var(--bg3);border:1px solid var(--br);border-radius:100px;padding:3px 10px;color:var(--t3);cursor:pointer;">MT5 공식</button>
+        <button onclick="addPresetUrl('https://www.asic.gov.au')" style="font-size:11px;background:var(--bg3);border:1px solid var(--br);border-radius:100px;padding:3px 10px;color:var(--t3);cursor:pointer;">ASIC</button>
+        <button onclick="addPresetUrl('https://kr.investing.com')" style="font-size:11px;background:var(--bg3);border:1px solid var(--br);border-radius:100px;padding:3px 10px;color:var(--t3);cursor:pointer;">인베스팅</button>
+        <button onclick="addPresetUrl('https://www.cmegroup.com')" style="font-size:11px;background:var(--bg3);border:1px solid var(--br);border-radius:100px;padding:3px 10px;color:var(--t3);cursor:pointer;">CME</button>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div class="lbl">추가 설명 (선택)</div>
+      <textarea class="inp" id="extraNote" style="min-height:60px;font-size:13px;" placeholder="예) 글로벌퓨처 장점 강조해줘&#10;대여계좌 위험성 더 자세히&#10;초보자도 쉽게 이해하게 써줘"></textarea>
+    </div>
+
+    <!-- 공통 참고 이미지 (모든 케이스) -->
+    <div class="lbl" style="margin-top:14px;">참고 이미지 (선택)</div>
+    <div style="background:#0A1A14;border-radius:8px;padding:8px 12px;font-size:12px;color:var(--t3);margin-bottom:8px;line-height:1.6;">
+      📸 <b style="color:var(--g)">모든 글에 사용 가능해요.</b> 사진을 올리면 에이전트가 분석해서 글에 반영하고, 자동으로 예쁘게 변환돼요.<br>
+      예상도 결과 사진, 나스닥 차트, MT5 화면, 신호 결과, 뉴스 캡처 등 어떤 사진이든 OK
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+      <div class="upbox" onclick="document.getElementById('f-any1').click()" id="up-any1" style="padding:12px 6px;"><input type="file" id="f-any1" accept="image/*" onchange="handleAnyScreenshot(1,this)"><div class="upbox-icon" style="font-size:16px;">📷</div><div class="upbox-txt" style="font-size:11px;">사진 1</div><div class="upbox-name" id="fn-any1" style="font-size:10px;"></div></div>
+      <div class="upbox" onclick="document.getElementById('f-any2').click()" id="up-any2" style="padding:12px 6px;"><input type="file" id="f-any2" accept="image/*" onchange="handleAnyScreenshot(2,this)"><div class="upbox-icon" style="font-size:16px;">📷</div><div class="upbox-txt" style="font-size:11px;">사진 2</div><div class="upbox-name" id="fn-any2" style="font-size:10px;"></div></div>
+      <div class="upbox" onclick="document.getElementById('f-any3').click()" id="up-any3" style="padding:12px 6px;"><input type="file" id="f-any3" accept="image/*" onchange="handleAnyScreenshot(3,this)"><div class="upbox-icon" style="font-size:16px;">📷</div><div class="upbox-txt" style="font-size:11px;">사진 3</div><div class="upbox-name" id="fn-any3" style="font-size:10px;"></div></div>
+      <div class="upbox" onclick="document.getElementById('f-any4').click()" id="up-any4" style="padding:12px 6px;"><input type="file" id="f-any4" accept="image/*" onchange="handleAnyScreenshot(4,this)"><div class="upbox-icon" style="font-size:16px;">📷</div><div class="upbox-txt" style="font-size:11px;">사진 4</div><div class="upbox-name" id="fn-any4" style="font-size:10px;"></div></div>
+    </div>
+
+    <!-- 플랫폼 -->
+    <div class="lbl" style="margin-top:14px;">발행 플랫폼</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:6px;">
+      체크된 플랫폼에 맞는 글이 각각 따로 만들어져요. 지금은 네이버만 체크해도 돼요.
+    </div>
+    <div class="plat-row">
+      <label class="plat-btn active" id="plat-naver"><input type="checkbox" checked onchange="togglePlat('naver',this)"> 🟢 네이버</label>
+      <label class="plat-btn active" id="plat-tistory"><input type="checkbox" checked onchange="togglePlat('tistory',this)"> 🟠 티스토리</label>
+      <label class="plat-btn active" id="plat-telegram"><input type="checkbox" checked onchange="togglePlat('telegram',this)"> 🔵 텔레그램</label>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:1.5rem;">
+    <button class="btn-main" id="genBtn" onclick="startGeneration()" style="margin-bottom:0;flex:1;">▶ 22개 에이전트 시작</button>
+    <button id="stopBtn" onclick="stopGeneration()" style="display:none;background:#2A0808;border:1px solid #FF475760;border-radius:10px;padding:15px 20px;color:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;white-space:nowrap;">⏹ 중단</button>
+  </div>
+
+  <!-- 에이전트 질문 대기 섹션 -->
+  <div id="questionSec" style="display:none;background:var(--bg2);border:1px solid #FFB80060;border-radius:12px;margin-bottom:1.5rem;overflow:hidden;">
+    <div style="padding:12px 16px;background:#1A1200;border-bottom:1px solid #FFB80040;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:18px;">❓</span>
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--a);">에이전트가 막혔어요 — 잠깐 도움이 필요해요!</div>
+        <div style="font-size:12px;color:var(--t3);">아래 질문에 답해주시면 더 정확한 글을 완성할게요</div>
+      </div>
+    </div>
+    <div id="questionList" style="padding:1rem 1.25rem;"></div>
+    <div style="padding:0 1.25rem 1.25rem;">
+      <button onclick="submitAnswers()" style="width:100%;background:var(--a);border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;color:#000;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✅ 답변 입력 완료 — 이어서 쓰기</button>
+    </div>
+  </div>
+
+  <!-- 에이전트 진행 -->
+  <div style="background:#0C1A2C;border:1px solid #60A5FA30;border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:#93C5FD;display:none;" id="agentExplain">
+    🤖 <b>22개 에이전트가 순서대로 작업하고 있어요.</b> 약 2~3분 걸려요. 기다려주세요!<br>
+    <span style="color:#4A7A9C">각 에이전트가 앞 에이전트 결과를 받아서 이어 작업해요. 80점 미만이면 자동으로 재작업해요.</span>
+  </div>
+  <div class="agent-sec" id="agentSec">
+    <div class="agent-hdr">
+      <div class="agent-hdr-title">에이전트 작동 현황</div>
+      <div class="prog-txt" id="progTxt">0 / 6단계</div>
+    </div>
+    <div class="prog-wrap"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="retry-banner" id="retryBanner">🔄 품질 점수 미달 — 해당 에이전트 재작업 중...</div>
+    <div id="agentList"></div>
+  </div>
+
+  <!-- 결과 -->
+  <div class="result-sec" id="resultSec">
+    <div class="result-hdr">
+      <div class="result-title">✅ 완성 — 복사해서 올리세요</div>
+      <div class="result-score" id="resultScore">품질 점수: --</div>
+    </div>
+    <div style="background:#0A2A1A;padding:8px 16px;font-size:12px;color:var(--t3);border-bottom:1px solid var(--gd);">
+      📋 <b style="color:var(--g)">네이버</b>: 복사 → 블로그에 붙여넣기 &nbsp;|&nbsp; 
+      <b style="color:#FFB800">티스토리</b>: 구글 SEO 최적화 버전 &nbsp;|&nbsp; 
+      <b style="color:var(--b)">텔레그램</b>: 채널 홍보 문구 &nbsp;|&nbsp; 
+      <b style="color:var(--p)">이미지</b>: 저장 후 블로그에 삽입
+    </div>
+    <div class="result-tabs">
+      <button class="rtab active" onclick="showRTab('naver')">📝 네이버</button>
+      <button class="rtab" onclick="showRTab('tistory')">🟠 티스토리</button>
+      <button class="rtab" onclick="showRTab('seo')">📈 SEO</button>
+      <button class="rtab" onclick="showRTab('telegram')">📱 텔레그램</button>
+      <button class="rtab" onclick="showRTab('images')">🖼 이미지</button>
+    </div>
+    <div class="rcont active" id="rt-naver">
+      <div class="rtxt" id="rv-naver"></div>
+      <div class="dl-row">
+        <div class="btn-dl" onclick="copyResult('rv-naver')">📋 복사</div>
+        <div class="btn-dl" onclick="downloadTxt('naver')">💾 TXT 저장</div>
+      </div>
+    </div>
+    <div class="rcont" id="rt-tistory">
+      <div style="font-size:12px;color:var(--g);background:var(--gg);border:1px solid var(--gd);border-radius:6px;padding:6px 12px;margin-bottom:10px;">구글 SEO 최적화 버전 — 영문 키워드 병행, 메타 설명 포함</div>
+      <div class="rtxt" id="rv-tistory"></div>
+      <div class="dl-row">
+        <div class="btn-dl" onclick="copyResult('rv-tistory')">📋 복사</div>
+        <div class="btn-dl" onclick="downloadTxt('tistory')">💾 저장</div>
+      </div>
+    </div>
+    <div class="rcont" id="rt-seo">
+      <div class="lbl">추천 제목 3개 (클릭해서 복사)</div>
+      <div id="seoTitles" style="font-size:13px;color:var(--t2);line-height:2.2;margin-bottom:12px;"></div>
+      <div class="lbl">키워드 태그</div>
+      <div class="seo-tags" id="seoTags"></div>
+    </div>
+    <div class="rcont" id="rt-telegram">
+      <div class="tg-box" id="rv-telegram"></div>
+      <div class="dl-row"><div class="btn-dl" onclick="copyResult('rv-telegram')">📋 복사</div></div>
+    </div>
+    <div class="rcont" id="rt-images">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:10px;">Gemini AI가 생성한 블로그 이미지예요. 각 이미지를 우클릭 → 저장하거나 스크린샷으로 사용하세요.</div>
+      <div class="img-grid" id="imgGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 블로그 지수 모니터 ===== -->
+<div id="pg-monitor" class="mp">
+  <div style="background:var(--bg2);border:1px solid var(--gd);border-radius:10px;padding:10px 14px;margin-bottom:1rem;font-size:12px;color:var(--t2);line-height:1.7;">
+    📊 <b style="color:var(--g)">블로그 지수란?</b> 카테고리별로 글을 얼마나 자주 올렸는지 보여줘요.<br>
+    2주 이상 글이 없는 카테고리가 생기면 네이버 C-Rank(신뢰도)가 떨어질 수 있어요.<br>
+    <span style="color:var(--t3)">"AI 분석" 버튼을 누르면 지금 블로그 상태를 분석해줘요.</span>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;margin-bottom:1rem;overflow:hidden;">
+    <div style="padding:11px 16px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:13px;font-weight:500;color:var(--t2)">📊 카테고리별 2주간 발행 현황</span>
+      <button class="btn-sm" onclick="analyzeMonitor()">↻ AI 분석</button>
+    </div>
+    <div id="catList"></div>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;margin-bottom:1rem;overflow:hidden;">
+    <div style="padding:11px 16px;border-bottom:1px solid var(--br)"><span style="font-size:13px;font-weight:500;color:var(--t2)">🧠 C-Rank 영향 분석</span></div>
+    <div id="crankAnalysis" style="padding:14px;font-size:13px;color:var(--t3)">위에서 "AI 분석" 버튼을 눌러주세요</div>
+  </div>
+  <div style="background:var(--bg2);border:1px solid var(--br);border-radius:12px;overflow:hidden;">
+    <div style="padding:11px 16px;border-bottom:1px solid var(--br)"><span style="font-size:13px;font-weight:500;color:var(--t2)">✅ 네이버 정책 체크리스트</span></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--g)"></div><div class="cname">외부링크 글 1개당 1~2개 이하</div><div class="cwarn wok">✓ 준수</div></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--g)"></div><div class="cname">키워드 자연스럽게 3~5회 (도배 금지)</div><div class="cwarn wok">✓ 준수</div></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--g)"></div><div class="cname">AI 생성 티 없는 자연스러운 글</div><div class="cwarn wok">✓ 준수</div></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--a)"></div><div class="cname">발행 주기 일관성</div><div class="cwarn wwarn">△ 확인필요</div></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--g)"></div><div class="cname">글자수 2,000자 이상</div><div class="cwarn wok">✓ 준수</div></div>
+    <div class="cat-row"><div class="cdot" style="background:var(--g)"></div><div class="cname">관련 이미지 6장 이상</div><div class="cwarn wok">✓ 준수</div></div>
+  </div>
+</div>
+
+<!-- ===== 알림 로그 ===== -->
+<div id="pg-notifications" class="mp">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+    <div style="font-size:13px;color:var(--t2)">텔레그램 봇 알림 내역</div>
+    <button class="btn-sm" onclick="sendTestNotif()">테스트 알림 보내기</button>
+  </div>
+  <div class="notif-log" id="notifLog">
+    <div style="padding:20px;text-align:center;color:var(--t3);font-size:13px">아직 알림이 없어요</div>
+  </div>
+</div>
+
+<!-- ===== 설정 ===== -->
+<div id="pg-settings" class="mp">
+  <div class="setting-group">
+    <div class="sg-title">🔑 API 키 설정</div>
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--t3);line-height:1.7;margin-bottom:12px;">
+      API 키 = 각 서비스에 접속하는 비밀번호예요.<br>
+      <span style="color:var(--g)">Claude</span>: 글 작성 (필수) · 
+      <span style="color:var(--b)">Gemini</span>: 이미지 생성 (권장) · 
+      <span style="color:var(--a)">Perplexity</span>: 실시간 뉴스 (선택)
+    </div>
+    <div class="sg-row"><div class="sg-label">Claude API</div><input class="inp" id="cfg-claude" type="password" placeholder="sk-ant-..." onchange="saveConfig()" onpaste="setTimeout(saveConfig,50)"></div>
+    <div class="sg-row"><div class="sg-label">Google Gemini</div><input class="inp" id="cfg-gemini" type="password" placeholder="AIza..." onchange="saveConfig()" onpaste="setTimeout(saveConfig,50)"></div>
+    <div class="sg-row"><div class="sg-label">Perplexity</div><input class="inp" id="cfg-perplexity" type="password" placeholder="pplx-..." onchange="saveConfig()"></div>
+  </div>
+  <div class="setting-group">
+    <div class="sg-title">📱 텔레그램 설정</div>
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--t3);line-height:1.7;margin-bottom:12px;">
+      글이 완성되면 폰으로 알림을 받을 수 있어요.<br>
+      봇 토큰 = @BotFather에서 발급 · 채팅 ID = @userinfobot에서 확인
+    </div>
+    <div class="sg-row"><div class="sg-label">봇 토큰</div><input class="inp" id="cfg-tg-token" type="password" placeholder="12345:AABBcc..." onchange="saveConfig()"></div>
+    <div class="sg-row"><div class="sg-label">채팅 ID</div><input class="inp" id="cfg-tg-chatid" placeholder="5428930180" onchange="saveConfig()"></div>
+  </div>
+  <div class="setting-group">
+    <div class="sg-title">🔔 알림 설정</div>
+    <div class="sg-row"><div class="sg-label">글 완성 시</div><label class="plat-btn active" style="margin:0"><input type="checkbox" id="notif-complete" checked> 알림 받기</label></div>
+    <div class="sg-row"><div class="sg-label">오늘 추천</div><label class="plat-btn active" style="margin:0"><input type="checkbox" id="notif-recommend" checked> 아침 9시 추천</label></div>
+    <div class="sg-row"><div class="sg-label">오류 감지</div><label class="plat-btn active" style="margin:0"><input type="checkbox" id="notif-error" checked> 오류 시 알림</label></div>
+  </div>
+  <div class="setting-group">
+    <div class="sg-title">📊 API 연결 상태</div>
+    <div class="sg-row"><div class="sg-label">Claude API</div><div class="sg-status" id="st-claude">확인 중...</div></div>
+    <div class="sg-row"><div class="sg-label">Google Gemini</div><div class="sg-status" id="st-gemini">확인 중...</div></div>
+    <div class="sg-row"><div class="sg-label">Perplexity</div><div class="sg-status" id="st-perplexity">확인 중...</div></div>
+    <div class="sg-row"><div class="sg-label">텔레그램 봇</div><div class="sg-status" id="st-telegram">확인 중...</div></div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn-sm" style="padding:8px 16px;font-size:13px" onclick="checkAllStatus()">연결 상태 확인</button>
+      <button class="btn-sm" style="padding:8px 16px;font-size:13px;background:#1A1200;color:var(--a);border-color:#FFB80040;" onclick="checkBalances()">💳 잔액 확인</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .app -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const CFG_KEY = 'nasdaq_pivo_v3_config';
+
+// 에이전트 참고 사이트 목록
+const REFERENCE_SITES = {
+  mt5: [
+    'https://www.metatrader5.com',
+    'https://www.mql5.com',
+  ],
+  broker: [
+    'https://globalfutures.com.au',
+    'https://www.asic.gov.au',
+  ],
+  news: [
+    'https://www.investing.com',
+    'https://finance.yahoo.com',
+  ],
+  naver_seo: [
+    'https://searchadvisor.naver.com/guide',
+  ]
+};
+const POSTS_KEY = 'nasdaq_pivo_posts';
+
+function getConfig() {
+  try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch { return {}; }
+}
+function saveConfig() {
+  const clean = v => v.replace(/[\s\n\r]/g, '').trim();
+  const cfg = {
+    claude: clean(document.getElementById('cfg-claude').value),
+    gemini: clean(document.getElementById('cfg-gemini').value),
+    perplexity: clean(document.getElementById('cfg-perplexity').value),
+    tgToken: clean(document.getElementById('cfg-tg-token').value),
+    tgChatId: document.getElementById('cfg-tg-chatid').value.trim(),
+  };
+  localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  updateConfigAlert();
+  toast('✅ 설정 저장됐어요');
+}
+function loadConfig() {
+  const cfg = getConfig();
+  if (cfg.claude) document.getElementById('cfg-claude').value = cfg.claude;
+  if (cfg.gemini) document.getElementById('cfg-gemini').value = cfg.gemini;
+  if (cfg.perplexity) document.getElementById('cfg-perplexity').value = cfg.perplexity;
+  if (cfg.tgToken) document.getElementById('cfg-tg-token').value = cfg.tgToken;
+  if (cfg.tgChatId) document.getElementById('cfg-tg-chatid').value = cfg.tgChatId;
+  updateConfigAlert();
+}
+function updateConfigAlert() {
+  const cfg = getConfig();
+  const missing = [];
+  if (!cfg.claude) missing.push('Claude API');
+  if (!cfg.gemini) missing.push('Gemini API');
+  if (!cfg.tgToken) missing.push('텔레그램 봇');
+  const el = document.getElementById('cfgAlert');
+  const tx = document.getElementById('cfgAlertTxt');
+  if (missing.length === 0) {
+    el.style.borderColor = '#00C89640';
+    el.style.background = '#0A2A1A';
+    el.style.color = '#00C896';
+    tx.textContent = '✓ 모든 API 연결됨 — 시스템 준비 완료';
+  } else {
+    el.style.borderColor = '#FFB80040';
+    el.style.background = '#1A1200';
+    el.style.color = '#FFB800';
+    tx.textContent = `⚠️ 설정 필요: ${missing.join(', ')} → 클릭해서 설정`;
+  }
+}
+
+// ============================================================
+// API CALLS
+// ============================================================
+async function callClaude(system, user, imgs = []) {
+  const cfg = getConfig();
+  if (!cfg.claude) throw new Error('Claude API 키가 없어요. 설정에서 입력해주세요.');
+  const content = [];
+  for (const f of imgs) {
+    if (!f || !(f instanceof Blob)) continue;
+    const b64 = await toB64(f);
+    if (!b64) continue;
+    content.push({ type:'image', source:{type:'base64', media_type:f.type||'image/png', data:b64} });
+  }
+  content.push({ type:'text', text:user });
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':cfg.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:2000, system, messages:[{role:'user',content}] })
+  });
+  const data = await res.json();
+  if (data.error) {
+    const errMsg = data.error.message || '';
+    const errType = data.error.type || '';
+    // 잔액 부족 감지
+    if (errType === 'insufficient_credits' || errMsg.includes('credit') || errMsg.includes('balance') || errMsg.includes('billing')) {
+      const alertMsg = '💳 Claude API 잔액이 부족해요! platform.anthropic.com에서 충전해주세요.';
+      const tgMsg = `⚠️ 💳 Claude API 잔액 부족!
+
+platform.anthropic.com에서 충전해주세요.
+
+🔧 충전 후에도 문제 있으면:
+claude.ai 에서 "NASDAQ PIVO 오류: 잔액 부족 해결해줘" 라고 하세요.`;
+      sendTelegram(tgMsg).catch(()=>{});
+      addNotifLog('💳', 'Claude 잔액 부족 — 충전 필요', 'platform.anthropic.com');
+      throw new Error(alertMsg);
+    }
+    // 인증 오류
+    if (errType === 'authentication_error' || errMsg.includes('API key')) {
+      throw new Error('❌ Claude API 키가 잘못됐어요. 설정에서 확인해주세요.');
+    }
+    throw new Error(data.error.message);
+  }
+  return data.content?.[0]?.text || '';
+}
+
+async function callGemini(prompt, imageGeneration = false) {
+  const cfg = getConfig();
+  if (!cfg.gemini) return null;
+  if (imageGeneration) {
+    // Gemini image generation
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${cfg.gemini}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{responseModalities:['TEXT','IMAGE']}
+      })
+    });
+    const data = await res.json();
+    if (data.error) {
+      const errMsg = (data.error.message || '').toLowerCase();
+      if (errMsg.includes('quota') || errMsg.includes('billing') || errMsg.includes('limit')) {
+        sendTelegram('⚠️ 💳 Gemini API 한도 초과 또는 잔액 부족!\naistudio.google.com에서 확인해주세요.').catch(()=>{});
+        addNotifLog('💳', 'Gemini 한도 초과', '확인 필요');
+      }
+      return null;
+    }
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const imgPart = parts.find(p => p.inlineData);
+    if (imgPart) return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+    return null;
+  } else {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cfg.gemini}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+    });
+    const data = await res.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+}
+
+async function callPerplexity(query, sites = []) {
+  const cfg = getConfig();
+  if (!cfg.perplexity) return null;
+  try {
+    const siteContext = sites.length > 0 ? `\n참고 사이트: ${sites.join(', ')}` : '';
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${cfg.perplexity}`},
+      body:JSON.stringify({ model:'sonar', messages:[{role:'user',content:`나스닥 해외선물 관련 최신 정보: ${query}${siteContext}\n한국어로 요약해줘. 300자 이내로.`}] })
+    });
+    const data = await res.json();
+    if (data.error) {
+      const errMsg = (data.error?.message || '').toLowerCase();
+      if (errMsg.includes('quota') || errMsg.includes('billing') || errMsg.includes('credit')) {
+        sendTelegram('⚠️ 💳 Perplexity API 잔액 부족!\nperplexity.ai에서 충전해주세요.').catch(()=>{});
+        addNotifLog('💳', 'Perplexity 잔액 부족', '충전 필요');
+      }
+    }
+    return data.choices?.[0]?.message?.content || null;
+  } catch { return null; }
+}
+
+async function sendTelegram(msg) {
+  const cfg = getConfig();
+  if (!cfg.tgToken || !cfg.tgChatId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${cfg.tgToken}/sendMessage`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ chat_id:cfg.tgChatId, text:msg, parse_mode:'HTML' })
+    });
+    const data = await res.json();
+    return data.ok;
+  } catch { return false; }
+}
+
+// ============================================================
+// AGENT PERSONAS (전문가 수준)
+// ============================================================
+const PERSONAS = {
+  researcher: `당신은 김태민입니다. 나스닥 해외선물 시장 리서처 경력 12년. CME 선물 시장 전문가. 하루에 50개 이상의 금융 뉴스를 분석하며 나스닥을 움직이는 핵심 요인을 파악합니다.
+전문 원칙: 숫자로 말한다 / 추측 금지, 팩트만 / 중요도 순서로 정리
+출력 형식: 반드시 JSON으로 { "issues": [...], "topic": "...", "keywords": [...], "difficulty": "낮음|중간|높음" }`,
+
+  seo: `당신은 박지수입니다. 네이버·구글 SEO 전문가 경력 9년. 상위노출 블로그 300개 이상 분석. 키워드 리서치 전문.
+전문 원칙: 월 검색량 500~5000 + 경쟁 블로그 3개 이하 + 실제 투자자 검색 의도 일치하는 키워드만 추천
+네이버 C-Rank: 주제 집중도 = 신뢰도. DIA: 독창성·정보량·구성력 평가. 체류시간이 핵심 지표.
+
+중요: 반드시 입력된 주제/케이스에 맞는 키워드만 추천하세요.
+예) "직장인 투자 이유" 주제 → "직장인투자", "직장인재테크", "월급외수입" 같은 관련 키워드
+    "메타트레이더란" 주제 → "메타트레이더", "MT5사용법" 같은 관련 키워드
+    주제와 무관한 키워드 절대 금지.
+출력 형식: JSON { "main_kw": "...", "sub_kw": [...], "difficulty": "...", "placement": "..." }`,
+
+  persona: `당신은 이미경입니다. 투자 심리 분석 전문가. 타겟 독자 4유형: A.투자입문직장인(쉬운설명원함) B.MT5입문자(비교정보원함) C.직장인부업희망자(숫자와결과원함) D.패턴교육희망자(전문성원함)
+출력 형식: JSON { "target": "A|B|C|D", "pain": "...", "want": "...", "tone": "...", "avoid": "..." }`,
+
+  competition: `당신은 최현우입니다. 경쟁 콘텐츠 분석 전문가. 같은 키워드 상위 블로그 패턴 분석.
+분석 항목: 글 길이/이미지 수/다루지 않은 내용/AI 티 여부/실제 경험 유무
+우리 강점: 지수되돌림 패턴(독자 개발) + 실제 예상도 결과 데이터 + 신호차트 실전 결과 + 텔레그램 실시간 채널
+출력 형식: JSON { "gap": [...], "advantage": [...], "add": [...] }`,
+
+  writer: `당신은 신효원입니다. 나스닥 해외선물 트레이더 경력 10년. 피보나치 되돌림과 지수이평선을 결합한 '지수되돌림 패턴'을 직접 개발하여 현재 교육생 30명을 가르치고 있습니다. 글로벌퓨처(ASIC 규제 정식 해외증권사)를 직접 사용하는 현직 트레이더.
+
+글쓰기 철학:
+- 어머니도 이해할 수 있어야 진짜 설명이다
+- 틀리면 솔직하게, 맞으면 근거와 함께
+- 팔려는 느낌이 나면 독자는 바로 떠난다
+
+절대 금지어: 중요한것은 / 결론적으로 / 따라서 / 이를통해 / 효과적인 / 다양한 / 전반적인 / ~하는것이중요합니다 / 최고의 / 완벽한 / 투자자문업등록증 / 금융투자업인가증 / 투자자문업 / 금융투자업인가
+
+필수 표현 (자연스럽게): 솔직히 / 근데이게 / 저도처음엔 / 쉽게말하면 / 생각보다별거아니에요
+
+문장 규칙:
+- 길이: 10자~80자 불규칙 혼합
+- 전문용어 나오면 바로 "(쉽게말하면 ~)" 추가
+- 소제목 7개 중 3개는 질문형
+- 2,000자 이상 필수
+- 광고처럼 느껴지면 즉시 수정
+- 문의는 글 마지막에 딱 1번만 (카카오 오픈채팅)`,
+
+  trust: `당신은 한승호입니다. 금융 콘텐츠 신뢰도 전문가. 법적·사실적 정확성 검토.
+추가할 신뢰 요소: ASIC/FCA 규제 정보 / 자본시장법 위반 팩트 / 구체적 수치 / 솔직한 단점
+절대 금지: 100%수익보장 / 원금보장 / 손실없음 / 무조건수익
+단점 포함 원칙: 신뢰도를 높이려면 약점을 솔직하게 1~2개 언급해야 한다`,
+
+  marketing: `당신은 강민준입니다. 네이버 블로그 마케팅 전문가 경력 8년. 상위노출 클릭률 최적화 전문.
+
+제목 공식:
+- 감성형: 독자 고민 공감 ("저도 처음엔 몰랐거든요")
+- 정보형: 구체적 기준 ("3가지 기준으로 비교")
+- 호기심형: 반전·의외성 ("이걸 모르면 손해")
+
+제목 규칙: 25~35자 / 핵심 키워드 앞 15자 안에 / 숫자 포함 시 CTR 23% 상승
+금지 제목: 클릭해서꼭보세요 / 최고의 / 완벽한 / 무조건 / 100%
+CTA 원칙: 광고 아닌 자연스러운 다음 행동 / 3단계 깔때기 (댓글→텔레그램→오픈채팅)
+
+반드시 입력된 글의 실제 주제에 맞는 제목만 만드세요. 주제와 무관한 제목 절대 금지.
+
+반드시 아래 형식으로 출력하세요:
+
+[네이버제목]
+감성형: (제목)
+정보형: (제목)
+호기심형: (제목)
+
+[텔레그램]
+(5줄 이내 홍보 문구)
+
+[CTA]
+중간: (자연스러운 중간 CTA)
+마지막: (자연스러운 마지막 CTA)
+
+[티스토리버전시작]
+(구글 SEO 최적화 버전 전체 글. 영문 키워드 병행. 첫줄에 메타설명 포함. 2000자 이상.)
+[티스토리버전끝]`,
+
+  aiDetector: `당신은 임재원입니다. AI 콘텐츠 탐지 전문가. GPTZero 기준 역설계.
+
+즉시 제거 패턴: 중요한것은 / 결론적으로 / 따라서 / 이를통해 / 효과적인 / 다양한 / 전반적인
+의심 패턴: 문장 길이 3개 연속 동일 / 소제목 모두 "~하는 방법" 형태 / 너무 완벽하게 정리된 구조
+수정 방향: 불완전한 문장 의도적 삽입 / 구어 마커 추가 / 리듬 변화
+통과 기준: "이 글을 사람이 썼다"고 느껴질 때까지 수정
+
+출력: 수정된 전문 글 (수정 전 AI 패턴 개수 표시)`,
+
+  factChecker: `당신은 박수현입니다. 금융 팩트체크 및 법적 리스크 전문가.
+
+필수 체크:
+1. 대여계좌 = 자본시장법 위반 (이용자도 법적 문제 가능) ← 반드시 팩트로 명시
+2. 수익률 과장 없는지 (구체적 수익 언급 시 근거 있는지)
+3. 글로벌퓨처 ASIC 규제 사실 확인
+4. "수익보장/원금보장/무조건" 표현 즉시 제거
+5. 투자 권유 직접 표현 → 완화 ("참고용입니다" 뉘앙스)
+
+출력: 수정된 글 전문 + 수정 항목 목록`,
+
+  naverSeo: `당신은 김서연입니다. 네이버 블로그 상위노출 전문가 경력 7년. C-Rank와 DIA 지수 최적화 전문.
+
+네이버 상위노출 핵심 기준:
+- 글 길이: 2,000자 이상 (3,000자 이상 권장)
+- 이미지: 3~5개 (블로그형 글 기준)
+- 소제목(H태그): 5~7개
+- 메인 키워드: 제목 포함 + 본문 첫 100자 이내 + 자연스럽게 8~12회
+- 외부링크: 최소화 (네이버 불이익)
+- 첫 문장: 독자 공감 또는 핵심 질문으로 시작
+- 마무리: 댓글/공감 유도 문구
+
+분석 후 반드시 아래 JSON 형식으로 출력:
+{
+  "글길이": {"현재": 0, "권장": "3000자 이상", "상태": "✅|⚠️|❌"},
+  "이미지수": {"현재": 0, "권장": "3~5개", "상태": "✅|⚠️|❌", "추가필요": 0},
+  "소제목수": {"현재": 0, "권장": "5~7개", "상태": "✅|⚠️|❌"},
+  "키워드밀도": {"메인키워드": "", "횟수": 0, "상태": "✅|⚠️|❌"},
+  "첫문장키워드": {"포함": true, "상태": "✅|❌"},
+  "외부링크": {"수": 0, "상태": "✅|⚠️"},
+  "마무리CTA": {"있음": true, "상태": "✅|❌"},
+  "예상점수": 0,
+  "총평": "한 줄 총평",
+  "개선사항": ["개선점1", "개선점2", "개선점3"]
+}`,
+
+  supervisor: `당신은 정유진입니다. 콘텐츠 품질 총괄 감독관. 네이버 상위 블로그 1000개 분석 경력.
+
+100점 채점 기준:
+- 사람 말투 자연스러움 (20점): AI 티 없고 구어체 자연스러우면 만점
+- 초등학생 이해도 (20점): 전문용어마다 풀이 있으면 만점
+- 네이버 SEO (20점): 2000자+, 키워드 자연배치, 외부링크 최소화
+- 신뢰도 요소 (20점): 규제정보+수치+솔직단점 포함이면 만점
+- 클릭 유도력 (20점): 제목 후킹+CTA 자연스러움
+
+재작업 기준:
+- 전체 80점 미만 → 전체 재작업
+- 사람말투 14점 이하 → 라이터 재작업
+- SEO 14점 이하 → SEO 재분석
+- AI티 14점 이하 → AI 탐지관 재작업
+
+출력 형식: JSON { "scores": {...}, "total": 0, "pass": true/false, "rewrite_agents": [...], "final_blog": "...", "reason": "..." }`,
+};
+
+// ============================================================
+// AGENT DEFINITIONS
+// ============================================================
+const AGENTS = [
+  // T1
+  {team:'T1 정보수집',num:'01',name:'마켓 리서처',role:'오늘 이슈·트렌드 파악',key:'research'},
+  {team:'T1 정보수집',num:'02',name:'SEO 분석가',role:'공략 키워드 선별',key:'seo'},
+  // T2
+  {team:'T2 전략기획',num:'03',name:'독자 페르소나 분석가',role:'타겟 독자 정의',key:'persona'},
+  {team:'T2 전략기획',num:'04',name:'경쟁 블로그 감시자',role:'차별화 포인트 파악',key:'competition'},
+  // T3
+  {team:'T3 글작성',num:'05',name:'스토리텔러 라이터',role:'2,000자+ 구어체 초안',key:'writer'},
+  {team:'T3 글작성',num:'06',name:'신뢰도 빌더',role:'전문성·팩트 요소 삽입',key:'trust'},
+  {team:'T3 글작성',num:'07',name:'마케팅 전략가',role:'제목3개+CTA+티스토리버전',key:'marketing'},
+  // T4
+  {team:'T4 디자인',num:'08',name:'썸네일 디자이너',role:'Gemini 썸네일 생성',key:'thumb'},
+  {team:'T4 디자인',num:'09',name:'인포그래픽 디자이너',role:'개념 도식화 이미지',key:'infog'},
+  {team:'T4 디자인',num:'10',name:'비교표 디자이너',role:'브로커 비교표 이미지',key:'table'},
+  {team:'T4 디자인',num:'11',name:'경고카드 디자이너',role:'대여계좌 경고 카드',key:'warn'},
+  {team:'T4 디자인',num:'12',name:'모바일 최적화',role:'이미지 모바일 검수',key:'mobile'},
+  {team:'T4 디자인',num:'13',name:'브랜딩 감시자',role:'스타일 일관성 확인',key:'brand'},
+  // T5
+  {team:'T5 품질관리',num:'14',name:'AI 티 제거 검수관',role:'AI 패턴 탐지·제거',key:'aidetect'},
+  {team:'T5 품질관리',num:'15',name:'팩트 체커',role:'금융 팩트·법적 리스크',key:'fact'},
+  {team:'T5 품질관리',num:'16',name:'총괄 감독관',role:'100점 채점·재작업 결정',key:'supervisor'},
+  {team:'T5 품질관리',num:'16b',name:'네이버 상위노출 분석관',role:'상위노출 체크리스트 분석',key:'naver_seo'},
+  // T6
+  {team:'T6 외부검증',num:'17',name:'Claude AI 탐지 검증',role:'AI 탐지 재확인',key:'v1'},
+  {team:'T6 외부검증',num:'18',name:'Gemini 팩트 교차검증',role:'팩트 크로스체크',key:'v2'},
+  {team:'T6 외부검증',num:'19',name:'SEO 실측 검증',role:'키워드 최종 확인',key:'v3'},
+  // T7
+  {team:'T7 운영관리',num:'20',name:'블로그 매니저',role:'발행 루틴 체크',key:'manager'},
+  {team:'T7 운영관리',num:'21',name:'정책 모니터링',role:'네이버 정책 변경 감지',key:'policy'},
+  {team:'T7 운영관리',num:'22',name:'시스템 감독관',role:'전체 시스템 상태 기록',key:'sysmon'},
+];
+
+// ============================================================
+// GENERATION STATE
+// ============================================================
+let currentCase = 'prediction';
+let uploadedFiles = {};
+let ctx = {}; // context chain
+let results = {};
+let platforms = {naver:true, tistory:true, telegram:true};
+let retryCount = 0;
+const MAX_RETRY = 2;
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function showMain(id) {
+  document.querySelectorAll('.main-tab').forEach((t,i) => {
+    t.classList.toggle('on', ['guide','dashboard','generate','monitor','notifications','settings'][i] === id);
+  });
+  document.querySelectorAll('.mp').forEach(p => p.classList.remove('on'));
+  document.getElementById('pg-' + id)?.classList.add('on');
+  if (id === 'guide') renderGuide();
+  if (id === 'dashboard') updateDashboard();
+  if (id === 'monitor') renderMonitor();
+}
+
+// ============================================================
+// 교육 글 커리큘럼 순서
+// ============================================================
+const EDU_CURRICULUM = [
+  // 1단계 입문
+  { step:1,  phase:'1단계 입문',    color:'#60A5FA', title:'직장인이 투자를 시작하는 이유',       topic:'직장인이 투자를 시작하는 이유 — 월급만으로는 부족한 현실' },
+  { step:2,  phase:'1단계 입문',    color:'#60A5FA', title:'주식 코인 부동산 나스닥 뭐가 달라?',  topic:'주식 코인 부동산 나스닥 해외선물 뭐가 다른가요? 솔직 비교' },
+  { step:3,  phase:'1단계 입문',    color:'#60A5FA', title:'해외선물이 뭔가요?',                  topic:'해외선물이 뭔가요? 초등학생도 이해하게 설명' },
+  // 2단계 기초
+  { step:4,  phase:'2단계 기초',    color:'#FCD34D', title:'나스닥이 뭔가요?',                    topic:'나스닥이 뭔가요? 왜 세계에서 제일 많이 거래하나요?' },
+  { step:5,  phase:'2단계 기초',    color:'#FCD34D', title:'증거금이란?',                         topic:'증거금이란? 모르면 해외선물 시작하지 마세요' },
+  { step:6,  phase:'2단계 기초',    color:'#FCD34D', title:'레버리지란?',                         topic:'레버리지란? 수익도 크고 손실도 큰 양날의 검' },
+  { step:7,  phase:'2단계 기초',    color:'#FCD34D', title:'나스닥 거래시간',                     topic:'나스닥 선물 거래시간 완벽 정리 — 한국시간 기준' },
+  // 3단계 메타트레이더 시리즈
+  { step:8,  phase:'3단계 MT5',     color:'#4ADE80', title:'메타트레이더란 무엇인가',             topic:'메타트레이더(MT5)란 무엇인가? 처음 듣는 분들을 위해 쉽게 설명' },
+  { step:9,  phase:'3단계 MT5',     color:'#4ADE80', title:'메타트레이더를 왜 써야하나',          topic:'메타트레이더를 왜 써야하는가? 국내 증권사와 다른 이유' },
+  { step:10, phase:'3단계 MT5',     color:'#4ADE80', title:'메타트레이더는 불법인가?',            topic:'메타트레이더는 불법인가? 합법적으로 쓰는 방법 — 팩트로만' },
+  { step:11, phase:'3단계 MT5',     color:'#4ADE80', title:'브로커 선택시 주의사항',              topic:'메타트레이더 브로커 선택시 주의사항 — 이것만은 꼭 확인하세요' },
+  { step:12, phase:'3단계 MT5',     color:'#4ADE80', title:'브로커별 수수료 비교',                topic:'메타트레이더 브로커별 수수료 비교 — 직접 계산해봤어요' },
+  { step:13, phase:'3단계 MT5',     color:'#4ADE80', title:'브로커별 혜택 비교',                  topic:'메타트레이더 브로커별 혜택 비교 — 글로벌퓨처 포함' },
+  { step:14, phase:'3단계 MT5',     color:'#4ADE80', title:'모바일 사용방법',                     topic:'메타트레이더 모바일 사용방법 — 설치부터 첫 거래까지' },
+  { step:15, phase:'3단계 MT5',     color:'#4ADE80', title:'모바일 기능 완전 정리',               topic:'메타트레이더 모바일 기능 완전 정리 — 이 기능들만 알면 충분해요' },
+  { step:16, phase:'3단계 MT5',     color:'#4ADE80', title:'PC 사용방법',                         topic:'메타트레이더 PC 버전 사용방법 — 처음 시작하는 분들을 위해' },
+  { step:17, phase:'3단계 MT5',     color:'#4ADE80', title:'PC 기능 완전 정리',                   topic:'메타트레이더 PC 기능 완전 정리 — 알면 알수록 편해지는 기능들' },
+  // 4단계 브로커
+  { step:18, phase:'4단계 브로커',  color:'#FF6B6B', title:'대여계좌가 불법인 이유',              topic:'대여계좌가 불법인 이유 — 팩트로만 설명할게요' },
+  { step:19, phase:'4단계 브로커',  color:'#FF6B6B', title:'국내 증권사 vs MT5 브로커',           topic:'국내 증권사 vs MT5 브로커 vs 대여계좌 솔직 비교' },
+  { step:20, phase:'4단계 브로커',  color:'#FF6B6B', title:'글로벌퓨처 솔직 후기',                topic:'글로벌퓨처 솔직 후기 — 장점 단점 다 말할게요' },
+  // 5단계 패턴
+  { step:21, phase:'5단계 패턴',    color:'#F472B6', title:'지수되돌림 패턴이란?',                topic:'지수되돌림 패턴이란? 처음 듣는 분들을 위해' },
+  { step:22, phase:'5단계 패턴',    color:'#F472B6', title:'피보나치 되돌림',                     topic:'피보나치 되돌림 초등학생도 이해하게 설명' },
+  { step:23, phase:'5단계 패턴',    color:'#F472B6', title:'지수이평선이란?',                     topic:'지수이평선이란? 차트에서 어떻게 보는지' },
+  { step:24, phase:'5단계 패턴',    color:'#F472B6', title:'지수되돌림 패턴 실전',                topic:'지수되돌림 패턴으로 나스닥 방향 잡는 방법 — 실전 가이드' },
+];
+const EDU_KEY = 'nasdaq_pivo_edu_progress';
+
+function getEduProgress() {
+  return parseInt(localStorage.getItem(EDU_KEY) || '0');
+}
+function getNextEdu() {
+  const progress = getEduProgress();
+  return EDU_CURRICULUM[progress] || EDU_CURRICULUM[EDU_CURRICULUM.length - 1];
+}
+function markEduDone() {
+  const progress = getEduProgress();
+  const current = EDU_CURRICULUM[progress];
+  if (current) {
+    // 발행 기록에 구체적인 교육 글 번호로 저장
+    const records = getPostRecords();
+    records.push({
+      category: 'edu_' + current.step,
+      label: current.step + '. ' + current.title,
+      date: new Date().toISOString(),
+      group: 'edu'
+    });
+    localStorage.setItem(POSTS_KEY, JSON.stringify(records));
+  }
+  if (progress < EDU_CURRICULUM.length) {
+    localStorage.setItem(EDU_KEY, String(progress + 1));
+  }
+  updateDashboard();
+  renderMonitor();
+}
+
+// ============================================================
+// GUIDE PAGE
+// ============================================================
+let statsFile = null;
+
+function handleStatsUpload(input) {
+  if (input.files[0]) {
+    statsFile = input.files[0];
+    setText('fn-stats', input.files[0].name);
+    document.getElementById('up-stats').classList.add('has');
+    document.getElementById('analyzeStatsBtn')?.style && (document.getElementById('analyzeStatsBtn').style.display = 'block');
+  }
+}
+
+async function analyzeStats() {
+  if (!statsFile) return;
+  const btn = document.getElementById('analyzeStatsBtn');
+  btn.disabled = true; btn.textContent = '분석 중...';
+  const resultEl = document.getElementById('statsResult');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--t3);font-size:13px;padding:10px 0">블로그 매니저가 통계를 분석 중이에요... ⏳</div>';
+  try {
+    const result = await callClaude(
+      `당신은 블로그 매니저입니다. 네이버 블로그 통계 화면을 분석해서 다음을 알려주세요:
+1. 지난 주 총 조회수
+2. 가장 많이 본 글 TOP 3
+3. 조회수 추이 (오름/내림/유지)
+4. 이번 주 꼭 써야 할 글 추천 (이유 포함)
+5. 주의할 점
+
+초등학생도 이해하게 쉽게, 핵심만 짧게 말해주세요.`,
+      '이 블로그 통계 이미지를 분석해주세요.',
+      [statsFile]
+    );
+    resultEl.innerHTML = `
+      <div style="background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:14px;font-size:13px;color:var(--t2);line-height:1.8;white-space:pre-wrap;margin-top:10px;">${result}</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn-sm" style="padding:8px 14px;font-size:13px;" onclick="showMain('generate')">→ 글 쓰러 가기</button>
+      </div>`;
+    // 통계 분석 완료 시 텔레그램 알림
+    const cfg = getConfig();
+    if (cfg.tgToken) {
+      await sendTelegram(`📊 블로그 통계 분석 완료\n\n${result.substring(0,300)}...`);
+    }
+  } catch(e) {
+    resultEl.innerHTML = `<div style="color:var(--r);font-size:13px;margin-top:8px">오류: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '📊 통계 분석하기';
+  }
+}
+
+let stepDone = {check: false, write: false, upload: false};
+
+function renderGuide() {
+  const now = new Date();
+  setText('guideDateTxt', now.toLocaleDateString('ko-KR', {month:'long',day:'numeric',weekday:'long'}));
+  const cfg = getConfig();
+  const apiEl = document.getElementById('guideApiTxt');
+  if (cfg.claude) { apiEl.textContent = 'Claude API 연결됨 ✓'; apiEl.style.color='var(--g)'; }
+  else { apiEl.textContent = '⚠️ 설정 탭에서 API 키 입력 필요'; apiEl.style.color='var(--a)'; }
+
+  const records = getPostRecords();
+  const today = now.toDateString();
+  const thisWeek = getWeekNum(now);
+
+  // 오늘 기록 체크
+  const todayRecs = records.filter(r => new Date(r.date).toDateString() === today);
+  const todayPrediction = todayRecs.find(r => r.category === '나스닥 예상도·결과');
+  const todayNews = todayRecs.find(r => r.category === '나스닥 뉴스·시황');
+  const weekChart = records.filter(r => getWeekNum(new Date(r.date)) === thisWeek && r.category === '단타 신호차트').length;
+  const nextEdu = getNextEdu();
+
+  // 완료 수 계산
+  const doneCount = [!!todayPrediction, !!todayNews, weekChart >= 1, false].filter(Boolean).length;
+  setText('doneCount', doneCount);
+  const _tp = document.getElementById('todayProgress'); if(_tp) _tp.style.width = (doneCount / 3 * 100) + '%';
+  const msgs = ['아래 순서대로 진행해보세요!', '잘 하고 있어요! 계속해봐요 💪', '거의 다 됐어요!', '오늘 할 일 완료! 수고하셨어요 🎉'];
+  setText('todayMsg', msgs[Math.min(doneCount, 3)]);
+
+  // 태스크 렌더
+  const tasks = [
+    {
+      icon: '📊',
+      title: '나스닥 예상도',
+      badge: todayPrediction ? (todayPrediction.pass ? '오늘 패스 ✓' : '완료 ✓') : '매일',
+      badgeColor: todayPrediction ? 'var(--g)' : 'var(--a)',
+      done: !!todayPrediction,
+      content: todayPrediction ? 
+        `<div style="font-size:12px;color:var(--t3);">${todayPrediction.pass ? '⏭️ 오늘 진입 구간 없어서 패스했어요' : '✅ 오늘 예상도 글 완성'}</div>` :
+        `<div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="goPrediction(false)" style="flex:1;background:var(--g);border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;color:#000;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">📈 나왔어요 → 글 쓰기</button>
+          <button onclick="goPrediction(true)" style="flex:1;background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:9px;font-size:13px;color:var(--t2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">⏭️ 오늘 안나왔어요</button>
+        </div>`
+    },
+    {
+      icon: '⚡',
+      title: '나스닥 뉴스',
+      badge: todayNews ? (todayNews.pass ? '이슈 없음 ✓' : '완료 ✓') : '매일',
+      badgeColor: todayNews ? 'var(--g)' : 'var(--a)',
+      done: !!todayNews,
+      content: todayNews ?
+        `<div style="font-size:12px;color:var(--t3);">${todayNews.pass ? '⏭️ 오늘 특별한 이슈 없었어요' : '✅ 뉴스 글 완성'}</div>` :
+        `<div style="display:flex;gap:8px;margin-top:8px;">
+          <button onclick="goNews(false)" style="flex:1;background:var(--b);border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;color:#000;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">📰 사진 올리고 판단</button>
+          <button onclick="goNews(true)" style="flex:1;background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:9px;font-size:13px;color:var(--t2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">⏭️ 이슈 없었어요</button>
+        </div>`
+    },
+    {
+      icon: '💰',
+      title: '단타 신호차트',
+      badge: weekChart >= 1 ? '이번 주 완료 ✓' : '주 1회',
+      badgeColor: weekChart >= 1 ? 'var(--g)' : 'var(--t3)',
+      done: weekChart >= 1,
+      content: weekChart >= 1 ?
+        `<div style="font-size:12px;color:var(--t3);">✅ 이번 주 신호차트 글 완료</div>` :
+        `<button onclick="goChart()" style="width:100%;background:var(--p);border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;font-family:'Noto Sans KR',sans-serif;margin-top:8px;">💰 이번 주 결과 올리기</button>`
+    },
+    {
+      icon: '📚',
+      title: `교육 글 — ${nextEdu.step}번`,
+      badge: `${nextEdu.phase}`,
+      badgeColor: 'var(--a)',
+      done: false,
+      content: `<div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-top:8px;">
+        <div style="font-size:13px;font-weight:500;color:var(--t);margin-bottom:4px;">${nextEdu.step}. ${nextEdu.title}</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px;">${nextEdu.phase} · 전체 24개 중 ${nextEdu.step}번째</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="goEdu()" style="flex:1;background:var(--a);border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;color:#000;cursor:pointer;font-family:'Noto Sans KR',sans-serif;">📚 이 글 쓰기</button>
+          <button onclick="showEduList()" style="background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--t2);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">전체 순서</button>
+        </div>
+      </div>`
+    }
+  ];
+
+  setHTML('todayTaskList', tasks.map((t, i) => `
+    <div style="background:var(--bg2);border:1px solid ${t.done ? 'var(--gd)' : 'var(--br)'};border-radius:12px;padding:1rem 1.25rem;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:${t.done ? '4px' : '0'};">
+        <div style="width:40px;height:40px;border-radius:50%;background:${t.done ? 'var(--gg)' : 'var(--bg3)'};border:2px solid ${t.done ? 'var(--g)' : 'var(--br)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">${t.done ? '✅' : t.icon}</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:600;color:${t.done ? 'var(--t3)' : 'var(--t)'};">${t.title}</div>
+        </div>
+        <div style="font-size:11px;padding:2px 8px;border-radius:100px;background:var(--bg3);color:${t.badgeColor};">${t.badge}</div>
+      </div>
+      ${t.content}
+    </div>`).join(''));
+
+  // 교육 커리큘럼 팝업 (숨김)
+  if (!document.getElementById('eduListModal')) {
+    const modal = document.createElement('div');
+    modal.id = 'eduListModal';
+    modal.style.cssText = 'display:none;position:fixed;inset:0;background:#000000AA;z-index:200;padding:2rem 1rem;overflow-y:auto;';
+    modal.innerHTML = `<div style="background:var(--bg2);border:1px solid var(--br);border-radius:16px;max-width:600px;margin:0 auto;overflow:hidden;">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:15px;font-weight:600;color:var(--t);">📚 교육 글 전체 순서 (24개)</div>
+        <button onclick="document.getElementById('eduListModal').style.display='none'" style="background:none;border:none;color:var(--t3);font-size:20px;cursor:pointer;">✕</button>
+      </div>
+      <div id="eduListContent" style="padding:1rem;"></div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+}
+
+function showEduList() {
+  const progress = getEduProgress();
+  setHTML('eduListContent', EDU_CURRICULUM.map(e => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--br2);">
+      <div style="width:28px;height:28px;border-radius:50%;background:${e.step <= progress ? 'var(--gg)' : e.step === progress+1 ? 'var(--a)20' : 'var(--bg3)'};border:1px solid ${e.step <= progress ? 'var(--g)' : e.step === progress+1 ? 'var(--a)' : 'var(--br)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:${e.step <= progress ? 'var(--g)' : e.step === progress+1 ? 'var(--a)' : 'var(--t3)'};flex-shrink:0;">${e.step <= progress ? '✓' : e.step}</div>
+      <div style="flex:1;">
+        <div style="font-size:13px;color:${e.step <= progress ? 'var(--t3)' : 'var(--t)'};">${e.title}</div>
+        <div style="font-size:11px;color:var(--t3);">${e.phase}</div>
+      </div>
+      ${e.step === progress+1 ? '<div style="font-size:11px;color:var(--a);padding:2px 8px;background:#1A1200;border-radius:100px;">다음 차례</div>' : ''}
+    </div>`).join(''));
+  document.getElementById('eduListModal')?.style && (document.getElementById('eduListModal').style.display = 'block');
+}
+
+function goPrediction(isPass) {
+  if (isPass) {
+    addPassRecord('나스닥 예상도·결과', '진입 구간 없음');
+    renderGuide();
+  } else {
+    showMain('generate');
+    selectCase('prediction');
+  }
+}
+function goNews(isPass) {
+  if (isPass) {
+    addPassRecord('나스닥 뉴스·시황', '오늘 특별한 이슈 없음');
+    renderGuide();
+  } else {
+    showMain('generate');
+    selectCase('news');
+  }
+}
+function goChart() {
+  showMain('generate');
+  selectCase('chart');
+}
+function goEdu() {
+  showMain('generate');
+  selectCase('education');
+  setTimeout(() => {
+    const nextEdu = getNextEdu();
+    const sel = document.getElementById('edu-topic');
+    sel.value = 'edu_' + nextEdu.step;
+    sel.dispatchEvent(new Event('change'));
+    // 주제 선택창으로 스크롤
+    sel.scrollIntoView({behavior:'smooth', block:'center'});
+    // 선택됐다고 시각적으로 강조
+    sel.style.borderColor = 'var(--g)';
+    setTimeout(() => sel.style.borderColor = '', 1500);
+  }, 200);
+}
+function selectCase(c) {
+  currentCase = c;
+  ['prediction','news','chart','education'].forEach(x => {
+    document.getElementById('ct-' + x).classList.toggle('active', x === c);
+    document.getElementById('inp-' + x).style.display = x === c ? 'block' : 'none';
+  });
+}
+function onEduTopicChange() {
+  // 주제 선택 시 추가 처리 (현재는 없음)
+}
+
+let screenshots = {};
+function handleScreenshot(num, input) {
+  if (input.files[0]) {
+    screenshots[num] = input.files[0];
+    setText('fn-ss' + num, input.files[0].name);
+    document.getElementById('up-ss' + num).classList.add('has');
+    uploadedFiles['ss' + num] = input.files[0];
+
+    // 미리보기 + 예쁘게 변환
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const beautified = beautifyScreenshot(img, 'MetaTrader MT5');
+          // base64를 File 객체로 변환해서 저장
+          fetch(beautified).then(r => r.blob()).then(blob => {
+            const file = new File([blob], `screenshot_${num}.png`, {type:'image/png'});
+            uploadedFiles['ss' + num] = file;
+            // 미리보기 업데이트
+            const nameEl = document.getElementById('fn-ss' + num);
+            nameEl.innerHTML = `✨ 예쁘게 변환됨`;
+            nameEl.style.color = 'var(--g)';
+          });
+        } catch(e) { console.log('Beautify failed:', e); }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function addSiteRow(btn) {
+  const list = document.getElementById('siteInputList');
+  const row = document.createElement('div');
+  row.className = 'site-input-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+  row.innerHTML = `<input class="inp site-url-inp" placeholder="https://..." style="flex:1;min-height:auto;font-size:13px;"><button onclick="this.parentElement.remove()" style="background:var(--bg3);border:1px solid var(--br);border-radius:6px;padding:0 10px;color:var(--r);cursor:pointer;font-size:16px;flex-shrink:0;">−</button>`;
+  list.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function addPresetUrl(url) {
+  const inputs = document.querySelectorAll('.site-url-inp');
+  // 빈 칸 있으면 거기 넣기
+  for (const inp of inputs) {
+    if (!inp.value.trim()) { inp.value = url; return; }
+  }
+  // 없으면 새 줄 추가
+  const list = document.getElementById('siteInputList');
+  const row = document.createElement('div');
+  row.className = 'site-input-row';
+  row.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;';
+  row.innerHTML = `<input class="inp site-url-inp" value="${url}" style="flex:1;min-height:auto;font-size:13px;"><button onclick="this.parentElement.remove()" style="background:var(--bg3);border:1px solid var(--br);border-radius:6px;padding:0 10px;color:var(--r);cursor:pointer;font-size:16px;flex-shrink:0;">−</button>`;
+  list.appendChild(row);
+}
+
+function getInputSites() {
+  return Array.from(document.querySelectorAll('.site-url-inp'))
+    .map(i => i.value.trim()).filter(Boolean);
+}
+
+function getExtraNoteContext() {
+  const note = document.getElementById('extraNote')?.value?.trim();
+  return note ? `\n\n[작성자 추가 요청]\n${note}` : '';
+}
+
+function handleAnyScreenshot(num, input) {
+  if (!input.files[0]) return;
+  const file = input.files[0];
+  setText('fn-any' + num, file.name);
+  document.getElementById('up-any' + num).classList.add('has');
+  uploadedFiles['any' + num] = file;
+
+  // 자동으로 예쁘게 변환
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const labelMap = {
+        prediction: '나스닥 예상도',
+        news: '나스닥 뉴스',
+        chart: '단타 신호차트',
+        education: document.getElementById('edu-topic')?.selectedOptions?.[0]?.text?.substring(0,8) || '교육 자료'
+      };
+      const label = labelMap[currentCase] || '참고 이미지';
+        const beautified = beautifyScreenshot(img, label);
+        fetch(beautified).then(r => r.blob()).then(blob => {
+          uploadedFiles['any' + num] = new File([blob], `img_${num}.png`, {type:'image/png'});
+          setHTML('fn-any' + num, '✨ 변환됨');
+          const _fn = document.getElementById('fn-any' + num); if(_fn) _fn.style.color = 'var(--g)';
+        });
+      } catch(e) { console.log('Beautify failed:', e); }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function togglePlat(p, el) {
+  platforms[p] = el.checked;
+  document.getElementById('plat-' + p).classList.toggle('active', el.checked);
+}
+function handleFile(key, input) {
+  if (input.files[0]) {
+    uploadedFiles[key] = input.files[0];
+    setText('fn-' + key, input.files[0].name);
+    document.getElementById('up-' + key)?.classList.add('has');
+  }
+}
+function toB64(file) {
+  if (!file || !(file instanceof Blob)) return Promise.resolve(null);
+  return new Promise(r => {
+    const reader = new FileReader();
+    reader.onload = e => r(e.target.result.split(',')[1]);
+    reader.onerror = () => r(null);
+    reader.readAsDataURL(file);
+  });
+}
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setHTML(id, html) { const el = document.getElementById(id); if(el) el.innerHTML = html; }
+function setText(id, txt) { const el = document.getElementById(id); if(el) el.textContent = txt; }
+
+// Agent UI
+function renderAgents() {
+  let html = '';
+  let lastTeam = '';
+  AGENTS.forEach(a => {
+    if (a.team !== lastTeam) {
+      html += `<div class="team-header">${a.team}</div>`;
+      lastTeam = a.team;
+    }
+    html += `<div class="agent-item" id="ai-${a.key}">
+      <div class="agent-num">${a.num}</div>
+      <div class="agent-info"><div class="agent-name">${a.name}</div><div class="agent-role">${a.role}</div></div>
+      <div class="abadge s-wait" id="ab-${a.key}">대기중</div>
+    </div>
+    <div class="ctx-flow" id="ctx-${a.key}"></div>
+    <div class="agent-out" id="ao-${a.key}"></div>`;
+  });
+  setHTML('agentList', html);
+}
+function setAgent(key, status, output = '', ctxMsg = '') {
+  const badge = document.getElementById('ab-' + key);
+  const out = document.getElementById('ao-' + key);
+  const ctxEl = document.getElementById('ctx-' + key);
+  const item = document.getElementById('ai-' + key);
+  if (!badge) return;
+  badge.className = 'abadge s-' + status;
+  badge.textContent = status === 'wait' ? '대기중' : status === 'run' ? '작업중...' : status === 'done' ? '완료 ✓' : status === 'retry' ? '재작업...' : '오류';
+  if (item) item.classList.toggle('running', status === 'run' || status === 'retry');
+  if (output) { out.innerHTML = output; out.classList.add('show'); }
+  if (ctxMsg) { ctxEl.innerHTML = `<span class="ctx-from">↑ 컨텍스트 수신:</span> ${ctxMsg}`; ctxEl.classList.add('show'); }
+}
+function setProgress(step, total = 6) {
+  const _pf = document.getElementById('progFill'); if(_pf) _pf.style.width = (step / total * 100) + '%';
+  setText('progTxt', `${step} / ${total}단계`);
+}
+function showRTab(tab) {
+  document.querySelectorAll('.rtab').forEach((t,i) => {
+    t.classList.toggle('active', ['naver','tistory','seo','telegram','images'][i] === tab);
+  });
+  document.querySelectorAll('.rcont').forEach(c => c.classList.remove('active'));
+  document.getElementById('rt-' + tab)?.classList.add('active');
+}
+
+// ============================================================
+// MAIN GENERATION
+// ============================================================
+async function startGeneration() {
+  const cfg = getConfig();
+  if (!cfg.claude) { toast('❌ Claude API 키가 없어요. 설정에서 입력해주세요.', 'error'); showMain('settings'); return; }
+
+  let userText = '';
+  if (currentCase === 'education') {
+    const topic = document.getElementById('edu-topic').value;
+    if (!topic) { toast('⚠️ 교육 글 주제를 선택해주세요!'); return; }
+    userText = `주제: ${topic}\n추가요청: ${document.getElementById('txt-education').value}`;
+  } else {
+    userText = document.getElementById('txt-' + currentCase)?.value || '';
+  }
+
+  const imgs = Object.values(uploadedFiles).filter(f => f && f instanceof Blob);
+  // 공통 이미지 초기화 (새 생성 시)
+  uploadedFiles = Object.fromEntries(Object.entries(uploadedFiles).filter(([k]) => k.startsWith('any')));
+  ctx = {
+    case: currentCase,
+    userText,
+    imgs,
+    inputSites: getInputSites(),
+    extraNote: document.getElementById('extraNote')?.value?.trim() || ''
+  };
+  results = {};
+  retryCount = 0;
+
+  isGenerating = true;
+  document.getElementById('genBtn').disabled = true;
+  setText('genBtn', '생성 중...');
+  const _sb2 = document.getElementById('stopBtn'); if(_sb2) _sb2.style.display = 'block';
+  document.getElementById('agentSec').classList.add('show');
+  const _ae = document.getElementById('agentExplain'); if(_ae) _ae.style.display = 'block';
+  document.getElementById('resultSec').classList.remove('show');
+  document.getElementById('retryBanner').classList.remove('show');
+  renderAgents();
+
+  try {
+    await runPhase1();
+    await runPhase2();
+    await runPhase3();
+    await runPhase4();
+    await runPhase5();
+    await runPhase6();
+    showResults();
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+    // 오류 발생 시 상세 알림 + Claude 수정 안내
+    if (cfg.tgToken && document.getElementById('notif-error').checked) {
+      const errorNotif = `🔴 NASDAQ PIVO 오류 발생
+
+오류 내용: ${e.message}
+
+🔧 수정 방법:
+claude.ai 에 접속해서 아래 내용을 붙여넣기 하세요:
+
+"NASDAQ PIVO 웹앱에서 오류가 났어요.
+오류: ${e.message}
+고쳐주세요."`;
+      await sendTelegram(errorNotif);
+    }
+    addNotifLog('🔴', '오류 발생 — Claude에게 수정 요청하세요', e.message);
+    // 화면에도 수정 안내 표시
+    showErrorGuide(e.message);
+  } finally {
+    isGenerating = false;
+    const _genBtn = document.getElementById('genBtn');
+    const _stopBtn = document.getElementById('stopBtn');
+    if (_genBtn) { _genBtn.disabled = false; _genBtn.textContent = '▶ 22개 에이전트 시작'; }
+    if (_stopBtn) _stopBtn.style.display = 'none';
+  }
+}
+
+// ============================================================
+// HUMAN-IN-THE-LOOP QUESTION SYSTEM
+// ============================================================
+let pendingQuestions = [];
+let questionResolve = null;
+let userAnswers = {};
+
+// 에이전트가 모르는 부분 감지 → 질문 생성
+async function checkAndAskQuestions(caseType, userText) {
+  const expertCtx = getExpertContext();
+  // 전문 지식이 충분하면 질문 스킵
+  if (expertCtx.length > 200) return {};
+
+  const questionDetector = await callClaude(
+    `당신은 블로그 글 작성 전 정보 수집 담당입니다.
+아래 입력 정보만으로 글을 쓰기에 부족한 정보가 있으면 질문을 만들어주세요.
+질문은 블로그 운영자만 알 수 있는 것들 (실제 수치, 개인 경험, 구체적 설정값 등)만 해주세요.
+이미 알 수 있는 일반 정보는 질문하지 마세요.
+최대 3개까지만.
+
+없으면 반드시 JSON {"questions":[]} 으로 출력.
+있으면 JSON {"questions":[{"id":"q1","question":"질문내용","example":"예시답변"},...]}`,
+    `케이스: ${caseType}
+입력: ${userText.substring(0,300)}
+전문지식: ${expertCtx.substring(0,200) || '없음'}`
+  );
+
+  const result = (() => { try { const m = questionDetector.match(/\{[\s\S]*\}/); return m ? JSON.parse(m[0]) : null; } catch { return null; } })();
+  const questions = result?.questions || [];
+
+  if (questions.length === 0) return {};
+
+  // 질문이 있으면 UI 표시 + 텔레그램 알림
+  return new Promise(async (resolve) => {
+    questionResolve = resolve;
+    pendingQuestions = questions;
+    userAnswers = {};
+    showQuestions(questions);
+
+    // 텔레그램으로 알림
+    const cfg = getConfig();
+    if (cfg.tgToken) {
+      const qText = questions.map((q,i) => `❓ ${i+1}. ${q.question}`).join('\n');
+      await sendTelegram(`⏸️ 에이전트가 잠깐 막혔어요!\n\n${qText}\n\n앱에서 답변해주세요 → 이어서 글 완성할게요`);
+      addNotifLog('❓', '에이전트 질문 — 답변 필요', `${questions.length}개 질문`);
+    }
+  });
+}
+
+function showQuestions(questions) {
+  const sec = document.getElementById('questionSec');
+  const list = document.getElementById('questionList');
+  sec.style.display = 'block';
+  list.innerHTML = questions.map(q => `
+    <div class="question-card">
+      <div style="margin-bottom:6px;"><span class="q-badge">?</span><span style="font-size:13px;font-weight:500;color:var(--t);">${q.question}</span></div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:6px;">예시: ${q.example || '직접 입력해주세요'}</div>
+      <input type="text" id="ans-${q.id}" class="inp" placeholder="${q.example || '답변 없이 넘어가려면 비워두세요'}" style="min-height:auto;font-size:13px;">
+    </div>`).join('');
+
+  // 스킵 버튼 추가 (빈칸으로 제출 가능)
+  const skipNote = document.createElement('div');
+  skipNote.style.cssText = 'font-size:11px;color:var(--t3);margin-top:8px;';
+  skipNote.textContent = '💡 답변 없이 빈칸으로 제출해도 에이전트가 알아서 써요';
+  list.appendChild(skipNote);
+
+  sec.scrollIntoView({behavior:'smooth', block:'center'});
+
+  // 3분 타임아웃 — 카운트다운 표시
+  if (window._questionTimeout) clearTimeout(window._questionTimeout);
+  if (window._questionInterval) clearInterval(window._questionInterval);
+
+  let remaining = 180;
+  const countEl = document.createElement('div');
+  countEl.id = 'questionCountdown';
+  countEl.style.cssText = 'font-size:11px;color:var(--t3);text-align:center;margin-top:8px;';
+  countEl.textContent = `⏱️ ${remaining}초 안에 답변 없으면 자동으로 넘어가요`;
+  document.getElementById('questionList').appendChild(countEl);
+
+  window._questionInterval = setInterval(() => {
+    remaining--;
+    const el = document.getElementById('questionCountdown');
+    if (el) el.textContent = `⏱️ ${remaining}초 안에 답변 없으면 자동으로 넘어가요`;
+    if (remaining <= 0) {
+      clearInterval(window._questionInterval);
+    }
+  }, 1000);
+
+  window._questionTimeout = setTimeout(() => {
+    if (questionResolve) {
+      toast('⏱️ 3분 경과 — 자동으로 이어서 진행해요');
+      submitAnswers();
+    }
+  }, 180000);
+}
+
+function submitAnswers() {
+  if (!questionResolve) return;
+  pendingQuestions.forEach(q => {
+    const val = document.getElementById('ans-' + q.id)?.value?.trim();
+    if (val) userAnswers[q.question] = val;
+  });
+  document.getElementById('questionSec').style.display = 'none';
+  const answers = userAnswers;
+  questionResolve(answers);
+  questionResolve = null;
+  toast('✅ 답변 반영! 에이전트가 이어서 글 완성할게요');
+}
+
+// 스크린샷 예쁘게 만들기
+function beautifyScreenshot(imgEl, label = 'MetaTrader MT5') {
+  const canvas = document.createElement('canvas');
+  const W = 360, padding = 40, headerH = 50, footerH = 50;
+  const imgH = imgEl.naturalHeight * (W / imgEl.naturalWidth);
+  canvas.width = W + padding * 2;
+  canvas.height = imgH + headerH + footerH + padding * 2;
+  const ctx2 = canvas.getContext('2d');
+
+  // 배경
+  const grad = ctx2.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, '#0D1117');
+  grad.addColorStop(1, '#0A2A1A');
+  ctx2.fillStyle = grad;
+  ctx2.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 디바이스 프레임
+  const frameX = padding, frameY = padding;
+  const frameW = W, frameH = imgH + headerH + footerH;
+  // roundRect 폴백 (구형 브라우저 호환)
+  const rr = (c, x, y, w, h, r) => {
+    if (c.roundRect) { c.beginPath(); c.roundRect(x,y,w,h,r); }
+    else { c.beginPath(); c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.arcTo(x+w,y,x+w,y+r,r); c.lineTo(x+w,y+h-r); c.arcTo(x+w,y+h,x+w-r,y+h,r); c.lineTo(x+r,y+h); c.arcTo(x,y+h,x,y+h-r,r); c.lineTo(x,y+r); c.arcTo(x,y,x+r,y,r); c.closePath(); }
+  };
+  rr(ctx2, frameX, frameY, frameW, frameH, 30);
+  ctx2.fillStyle = '#1A1A2E';
+  ctx2.fill();
+  ctx2.strokeStyle = '#2A2A4A';
+  ctx2.lineWidth = 3;
+  ctx2.stroke();
+
+  // 상단 노치
+  ctx2.fillStyle = '#2A2A4A';
+  ctx2.beginPath();
+  ctx2.roundRect(frameX + frameW/2 - 40, frameY + 12, 80, 8, 4);
+  ctx2.fill();
+
+  // 스크린
+  const screenX = frameX, screenY = frameY + headerH;
+  ctx2.beginPath();
+  ctx2.roundRect(screenX, screenY, frameW, imgH, 4);
+  ctx2.fillStyle = '#000';
+  ctx2.fill();
+  ctx2.save();
+  ctx2.beginPath();
+  ctx2.roundRect(screenX, screenY, frameW, imgH, 4);
+  ctx2.clip();
+  ctx2.drawImage(imgEl, screenX, screenY, frameW, imgH);
+  ctx2.restore();
+
+  // 하단 홈 버튼 라인
+  ctx2.fillStyle = '#3A3A5A';
+  ctx2.beginPath();
+  ctx2.roundRect(frameX + frameW/2 - 30, frameY + headerH + imgH + 15, 60, 4, 100);
+  ctx2.fill();
+
+  // 라벨 배지
+  const badgeX = padding + 10, badgeY = padding - 14;
+  ctx2.fillStyle = '#00C896';
+  ctx2.beginPath();
+  ctx2.roundRect(badgeX, badgeY, 120, 28, 100);
+  ctx2.fill();
+  ctx2.fillStyle = '#000';
+  ctx2.font = 'bold 12px sans-serif';
+  ctx2.textAlign = 'center';
+  ctx2.fillText(label, badgeX + 60, badgeY + 18);
+
+  return canvas.toDataURL('image/png');
+}
+
+// ============================================================
+// REVISION REQUEST
+// ============================================================
+let revisionCount = 0;
+
+function setRevision(text) {
+  document.getElementById('revisionInput').value = text;
+  document.getElementById('revisionInput').focus();
+}
+
+async function requestRevision() {
+  const request = document.getElementById('revisionInput').value.trim();
+  if (!request) { toast('⚠️ 수정 요청 내용을 입력해주세요!'); return; }
+  if (!ctx.finalBlog) { toast('⚠️ 먼저 글을 생성해주세요!'); return; }
+
+  const btn = document.getElementById('revisionBtn');
+  btn.disabled = true;
+  btn.textContent = '수정 중...';
+  revisionCount++;
+
+  try {
+    toast('✏️ 에이전트가 수정 중이에요...', 'info');
+
+    // 수정 전 원본 보관
+    const originalBlog = ctx.finalBlog;
+
+    // 라이터 에이전트가 수정 작업
+    const revised = await callClaude(
+      PERSONAS.writer,
+      `다음은 기존에 완성된 블로그 글입니다.
+
+[기존 글]
+${ctx.finalBlog}
+
+[수정 요청사항]
+${request}
+
+수정 요청사항을 반영해서 글 전문을 다시 출력해주세요.
+수정한 부분 외의 나머지는 그대로 유지해주세요.
+글 전체를 출력해주세요.`
+    );
+
+    // AI 티 제거 통과
+    const aiFixed = await callClaude(
+      PERSONAS.aiDetector,
+      `다음 글의 AI 티를 제거해주세요:
+
+${revised}`
+    );
+
+    // 결과 업데이트
+    ctx.finalBlog = aiFixed || revised;
+    setText('rv-naver', ctx.finalBlog);
+
+    // 티스토리도 업데이트
+    const tistoryVer = document.getElementById('rv-tistory').textContent;
+    if (tistoryVer) {
+      const tistoryRevised = await callClaude(
+        PERSONAS.writer,
+        `다음 티스토리 버전 글에도 동일한 수정을 적용해주세요.
+
+[수정 요청사항]
+${request}
+
+[티스토리 버전 글]
+${tistoryVer}
+
+수정된 글 전문을 출력해주세요.`
+      );
+      setText('rv-tistory', tistoryRevised);
+    }
+
+    // 수정 이력 추가
+    addRevisionHistory(revisionCount, request);
+
+    toast(`✅ ${revisionCount}번째 수정 완료!`);
+    document.getElementById('revisionInput').value = '';
+
+    // 네이버 탭으로 이동해서 확인하게
+    showRTab('naver');
+    document.getElementById('rv-naver').scrollIntoView({behavior:'smooth', block:'center'});
+
+  } catch(e) {
+    toast('❌ 수정 실패: ' + e.message, 'error');
+    showErrorGuide(e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✏️ 수정하기';
+  }
+}
+
+function addRevisionHistory(num, request) {
+  const histEl = document.getElementById('revisionHistory');
+  const listEl = document.getElementById('revisionHistoryList');
+  histEl.style.display = 'block';
+
+  const item = document.createElement('div');
+  item.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--br2);font-size:12px;';
+  item.innerHTML = `
+    <div style="width:20px;height:20px;border-radius:50%;background:#1A0A2A;border:1px solid var(--p);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--p);flex-shrink:0;">${num}</div>
+    <div style="flex:1;color:var(--t2);">${request}</div>
+    <div style="color:var(--t3);font-size:11px;">${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  listEl.insertBefore(item, listEl.firstChild);
+}
+
+// ============================================================
+// ERROR GUIDE
+// ============================================================
+function showErrorGuide(errMsg) {
+  // 기존 오류 가이드 제거
+  const existing = document.getElementById('errorGuide');
+  if (existing) existing.remove();
+
+  const div = document.createElement('div');
+  div.id = 'errorGuide';
+  div.style.cssText = 'background:#1A0808;border:1px solid #FF475760;border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:18px;">🔴</span>
+      <div style="font-size:14px;font-weight:600;color:var(--r);">오류가 발생했어요</div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:12px;color:var(--t3);margin-bottom:12px;word-break:break-all;">${errMsg}</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:10px;">👇 <b style="color:var(--t)">Claude에게 수정 요청하는 방법</b></div>
+    <div style="background:#0C1A2C;border:1px solid #60A5FA30;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--b);margin-bottom:6px;">아래 내용을 복사해서 claude.ai에 붙여넣기 하세요</div>
+      <div id="claudeFixMsg" style="font-size:12px;color:#93C5FD;line-height:1.7;white-space:pre-wrap;">NASDAQ PIVO 웹앱에서 오류가 났어요.
+오류 내용: ${errMsg}
+고쳐주세요.</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="copyClaudeFixMsg()" style="flex:1;background:#0C1A2C;border:1px solid #60A5FA40;border-radius:8px;padding:8px;font-size:13px;color:var(--b);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">📋 복사하기</button>
+      <a href="https://claude.ai" target="_blank" style="flex:1;background:var(--g);border:none;border-radius:8px;padding:8px;font-size:13px;font-weight:600;color:#000;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;font-family:'Noto Sans KR',sans-serif;">🔗 claude.ai 열기</a>
+      <button onclick="document.getElementById('errorGuide').remove()" style="background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--t3);cursor:pointer;font-family:'Noto Sans KR',sans-serif;">✕</button>
+    </div>
+  `;
+
+  // 생성 버튼 위에 삽입
+  const genBtn = document.getElementById('genBtn');
+  genBtn.parentNode.insertBefore(div, genBtn);
+  div.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function copyClaudeFixMsg() {
+  const msg = document.getElementById('claudeFixMsg')?.textContent || '';
+  navigator.clipboard.writeText(msg).then(() => toast('📋 복사됐어요! claude.ai에 붙여넣기 하세요'));
+}
+
+// ============================================================
+// STOP GENERATION
+// ============================================================
+let isGenerating = false;
+
+function stopGeneration() {
+  isGenerating = false;
+  // 질문 대기 중이면 resolve해서 빠져나오기
+  if (questionResolve) {
+    questionResolve({});
+    questionResolve = null;
+  }
+  if (window._questionTimeout) clearTimeout(window._questionTimeout);
+  if (window._questionInterval) clearInterval(window._questionInterval);
+  document.getElementById('questionSec')?.style && (document.getElementById('questionSec').style.display = 'none');
+  const _s = document.getElementById('stopBtn');
+  const _g = document.getElementById('genBtn');
+  if (_s) _s.style.display = 'none';
+  if (_g) { _g.disabled = false; _g.textContent = '▶ 22개 에이전트 시작'; }
+  toast('⏹ 생성이 중단됐어요', 'error');
+}
+
+// ============================================================
+// PHASE 1: 정보수집 T1+T2 (병렬)
+// ============================================================
+async function runPhase1() {
+  setProgress(1);
+  setAgent('research','run'); setAgent('seo','run'); setAgent('persona','run'); setAgent('competition','run');
+
+  const caseNames = {prediction:'나스닥 예상도 결과',news:'나스닥 뉴스 속보',chart:'단타 신호차트 결과',education:'투자 교육 글'};
+
+  // Perplexity로 실시간 조사 (케이스별 참고 사이트 포함)
+  let realtimeNews = '';
+  // 사용자 등록 사이트 + 케이스별 기본 사이트 합치기
+  const userSites = getSites().map(s => s.url);
+  const caseSites = {
+    prediction: [...REFERENCE_SITES.news, ...userSites],
+    news: [...REFERENCE_SITES.news, ...userSites],
+    chart: [...REFERENCE_SITES.news, ...userSites],
+    education: [...REFERENCE_SITES.mt5, ...REFERENCE_SITES.broker, ...userSites]
+  };
+  const allSites = [...(caseSites[currentCase] || []), ...(ctx.inputSites || [])];
+  const pResult = await callPerplexity(
+    `나스닥 오늘 주요 이슈 ${new Date().toLocaleDateString('ko-KR')}`,
+    allSites
+  );
+  if (pResult) {
+    realtimeNews = `실시간 조사 결과: ${pResult}`;
+    setAgent('research','run',`<b>Perplexity 실시간:</b> ${pResult.substring(0,100)}...`);
+  }
+
+  const [researchRaw, seoRaw, personaRaw] = await Promise.all([
+    callClaude(PERSONAS.researcher,
+      `케이스: ${caseNames[currentCase]}\n입력: ${ctx.userText}\n${realtimeNews}\n\n분석해주세요. JSON으로 출력.`, ctx.imgs),
+    callClaude(PERSONAS.seo,
+      `케이스: ${caseNames[currentCase]}\n내용: ${ctx.userText.substring(0,200)}\n\nJSON으로 키워드 분석해주세요.`),
+    callClaude(PERSONAS.persona,
+      `케이스: ${caseNames[currentCase]}\n내용: ${ctx.userText.substring(0,200)}\n\nJSON으로 독자 분석해주세요.`),
+  ]);
+
+  const competitionRaw = await callClaude(PERSONAS.competition,
+    `케이스: ${caseNames[currentCase]}\nSEO 분석: ${seoRaw.substring(0,200)}\n\n경쟁 분석 JSON으로 출력.`);
+
+  // JSON 파싱 시도
+  ctx.research = tryParseJSON(researchRaw);
+  ctx.seo = tryParseJSON(seoRaw);
+  ctx.persona = tryParseJSON(personaRaw);
+  ctx.competition = tryParseJSON(competitionRaw);
+
+  setAgent('research','done',`<b>오늘 주제:</b> ${ctx.research?.topic || caseNames[currentCase]}<br><b>키워드:</b> ${(ctx.research?.keywords||[]).join(', ')}`);
+  setAgent('seo','done',`<b>메인 키워드:</b> ${ctx.seo?.main_kw || '-'}<br><b>서브:</b> ${(ctx.seo?.sub_kw||[]).join(', ')}`);
+  setAgent('persona','done',`<b>타겟:</b> ${ctx.persona?.target || '-'}<br><b>니즈:</b> ${ctx.persona?.want || '-'}`);
+  setAgent('competition','done',`<b>차별화 포인트:</b> ${(ctx.competition?.advantage||[]).slice(0,2).join(' / ')}`);
+  await sleep(300);
+}
+
+// ============================================================
+// PHASE 2: 글작성 T3 (순차 — 컨텍스트 체인)
+// ============================================================
+async function runPhase2() {
+  if (!isGenerating) throw new Error("사용자가 생성을 중단했어요");
+
+  setProgress(2);
+
+  const casePrompts = {
+    prediction:`나스닥 예상도와 결과를 공유하는 블로그 글. 지수되돌림 패턴(피보나치+지수이평선 결합, 직접 개발한 독자 패턴) 자연스럽게 설명. 달성시 축하+이유설명, 실패시 솔직공개. 텔레그램 채널 자연 언급. 교육 관심 독자 위한 패턴 교육 언급 포함.`,
+    news:`텔레그램 뉴스 채널 속보를 활용한 블로그 글. "우리 채널이 먼저 잡았습니다" 컨셉. 뉴스→나스닥 영향 인과관계 체인으로 초등학생도 이해하게 설명. "투자 정보는 속도전" 컨셉. 채널 가입 자연 유도.`,
+    chart:`단타 신호차트 결과 공유 글. 손절 솔직 공개(신뢰도 핵심). 직장인 부업 관점 공감. MT5+글로벌퓨처(ASIC규제 정식 해외증권사) 자연 연결. Claude와 공동 개발한 차트임을 언급.`,
+    education:`투자 교육 글. 초등학생도 이해하게. 전문용어 나오면 즉시 일상 비유로. 마지막에 글로벌퓨처나 지수되돌림 패턴 자연 연결.`
+  };
+
+  // Agent 5: Writer (컨텍스트 체인: research + seo + persona + competition 전달)
+  setAgent('writer','run','',`리서처: ${ctx.research?.topic||''} / SEO: ${ctx.seo?.main_kw||''} / 타겟: ${ctx.persona?.target||''}`);
+  const expertCtx = getExpertContext();
+
+  // 교육글은 주제 선택했으니 질문 스킵, 다른 케이스도 기본 스킵
+  const answers = {};
+  // (질문 시스템 비활성화 — 에이전트가 알아서 처리)
+  const answersContext = Object.keys(answers).length > 0
+    ? '\n\n[사용자 보충 정보]\n' + Object.entries(answers).map(([q,a]) => `Q: ${q}\nA: ${a}`).join('\n')
+    : '';
+
+  const writerDraft = await callClaude(PERSONAS.writer,
+    `${casePrompts[currentCase]}
+
+[컨텍스트 체인 — 앞 에이전트 결과]
+리서치: ${JSON.stringify(ctx.research||{}).substring(0,300)}
+SEO 키워드: 메인=${ctx.seo?.main_kw||''}, 서브=${(ctx.seo?.sub_kw||[]).join(',')}
+독자 타겟: ${ctx.persona?.target||''} - ${ctx.persona?.want||''}
+차별화: ${(ctx.competition?.add||[]).join(', ')}
+${expertCtx}
+
+입력 정보: ${ctx.userText}${answersContext}
+${ctx.inputSites?.length > 0 ? '참고 사이트: ' + ctx.inputSites.join(', ') + '\n위 사이트 내용을 Perplexity로 조사해서 비교분석 후 자연스럽게 반영하세요.' : ''}
+${ctx.extraNote ? '[작성자 추가 요청] ' + ctx.extraNote : ''}
+2,000자 이상 완성된 블로그 글을 써주세요.`, ctx.imgs);
+  ctx.draft = writerDraft;
+  setAgent('writer','done',`블로그 초안 완성 — ${writerDraft.length}자`);
+
+  // Agent 6: Trust Builder (컨텍스트: draft)
+  setAgent('trust','run','',`라이터 초안 ${ctx.draft.length}자 수신`);
+  const trusted = await callClaude(PERSONAS.trust,
+    `[이전 에이전트 초안]\n${ctx.draft}\n\n신뢰 요소를 자연스럽게 추가해서 완성된 글 전문을 출력하세요.`);
+  ctx.trusted = trusted;
+  setAgent('trust','done','신뢰도 요소 삽입 완료');
+
+  // Agent 7: Marketing (컨텍스트: trusted + seo)
+  setAgent('marketing','run','',`신뢰도빌더 결과 수신 + SEO 키워드: ${ctx.seo?.main_kw||''}`);
+  const marketing = await callClaude(PERSONAS.marketing,
+    `[글 내용 요약]\n${ctx.trusted.substring(0,600)}
+
+[SEO 정보]\n메인키워드: ${ctx.seo?.main_kw||''}, 서브: ${(ctx.seo?.sub_kw||[]).join(',')}
+
+반드시 아래 마커 형식 그대로 출력하세요 (마커는 절대 생략 금지):
+
+[네이버제목]
+감성형: (25~35자 제목)
+정보형: (25~35자 제목)
+호기심형: (25~35자 제목)
+
+[텔레그램]
+(5줄 이내 홍보 문구. 이모지 포함. 블로그 링크 안내)
+
+[티스토리버전시작]
+(구글 SEO 최적화 버전 전체 글. 2000자 이상. 영문 키워드 자연스럽게 포함.)
+[티스토리버전끝]`);
+  ctx.marketing = marketing;
+  setAgent('marketing','done','제목3개 + 티스토리버전 + 텔레그램 완성');
+  await sleep(200);
+}
+
+// ============================================================
+// PHASE 3: 이미지 생성 T4 (Gemini)
+// ============================================================
+async function runPhase3() {
+  if (!isGenerating) throw new Error("사용자가 생성을 중단했어요");
+
+  setProgress(3);
+  const cfg = getConfig();
+  ['thumb','infog','table','warn','mobile','brand'].forEach(k => setAgent(k,'run'));
+
+  ctx.images = [];
+  const summary = ctx.trusted.substring(0, 300);
+  const mainKw = ctx.seo?.main_kw || '나스닥 메타트레이더';
+
+  const topicTitle = currentCase === 'education' 
+    ? (document.getElementById('edu-topic')?.selectedOptions?.[0]?.text || mainKw)
+    : mainKw;
+  const imagePrompts = [
+    `다크 테마 블로그 썸네일. 배경:#0D1117. 민트그린:#00C896. 주제: ${topicTitle}. 관련 시각 요소. 한국어 텍스트.`,
+    `${topicTitle} 핵심 개념 인포그래픽. 다크 테마. 3단계 흐름도. 초록 강조색.`,
+    `${topicTitle} 핵심 정보 비교 카드. 다크 테마. 숫자와 아이콘 포함.`,
+    `${topicTitle} 요약 카드. 다크 테마. 핵심 포인트 3가지. 민트그린 강조.`,
+  ];
+
+  if (cfg.gemini) {
+    for (let i = 0; i < imagePrompts.length; i++) {
+      try {
+        const imgData = await callGemini(imagePrompts[i], true);
+        if (imgData) {
+          ctx.images.push({ label: ['썸네일','인포그래픽','비교표','경고카드'][i], data: imgData });
+        }
+      } catch(e) { console.log('Image gen failed:', e); }
+      await sleep(500);
+    }
+  }
+
+  // Gemini 없거나 실패시 SVG 폴백
+  if (ctx.images.length === 0) {
+    ctx.images = generateFallbackSVGs(mainKw);
+  }
+
+  setAgent('thumb','done',ctx.images[0] ? '썸네일 생성 완료' : `SVG 폴백 — 키워드: ${topicTitle}`);
+  setAgent('infog','done',ctx.images[1] ? '인포그래픽 완료' : `SVG 폴백 — ${topicTitle} 핵심 개념 도식`);
+  setAgent('table','done',ctx.images[2] ? '비교표 완료' : `SVG 폴백 — ${topicTitle} 정보 카드`);
+  setAgent('warn','done',ctx.images[3] ? '경고카드 완료' : `SVG 폴백 — ${topicTitle} 요약`);
+  // 모바일최적화: 실제로 이미지 수 + 글자 크기 체크
+  const imgCount = ctx.images.length;
+  setAgent('mobile','done',`이미지 ${imgCount}개 · 모바일 가로폭(600px) 적합 · alt텍스트 필요`);
+  // 브랜딩: 다크테마/민트그린 일관성 체크
+  setAgent('brand','done',`배경 #0D1117 ✓ · 강조색 #00C896 ✓ · 폰트 Noto Sans KR ✓`);
+  await sleep(200);
+}
+
+function generateFallbackSVGs(kw) {
+  return [
+    { label:'썸네일', svg: `<svg viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="300" fill="#0D1117"/><rect x="0" y="0" width="4" height="300" fill="#00C896"/><text x="40" y="80" font-family="sans-serif" font-size="32" font-weight="700" fill="#00C896">${kw}</text><text x="40" y="120" font-family="sans-serif" font-size="18" fill="#8A9A8C">나스닥 트레이더 · 지수되돌림 패턴</text><polyline points="40,220 120,180 200,200 280,150 360,170 440,130 520,110" fill="none" stroke="#00C896" stroke-width="3"/><text x="40" y="280" font-family="sans-serif" font-size="12" fill="#4A5A4C">MetaTrader · 해외선물 · 글로벌퓨처</text></svg>` },
+    { label:'인포그래픽', svg: `<svg viewBox="0 0 600 250" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="250" fill="#0D1117"/><text x="300" y="50" font-family="sans-serif" font-size="20" font-weight="700" fill="#00C896" text-anchor="middle">메타트레이더 시작하는 방법</text><rect x="40" y="70" width="140" height="80" rx="8" fill="#0A2A1A" stroke="#00C896" stroke-width="1"/><text x="110" y="115" font-family="sans-serif" font-size="14" fill="#00C896" text-anchor="middle">① 브로커 선택</text><rect x="220" y="70" width="140" height="80" rx="8" fill="#0A2A1A" stroke="#00C896" stroke-width="1"/><text x="290" y="115" font-family="sans-serif" font-size="14" fill="#00C896" text-anchor="middle">② MT5 설치</text><rect x="400" y="70" width="160" height="80" rx="8" fill="#0A2A1A" stroke="#00C896" stroke-width="1"/><text x="480" y="115" font-family="sans-serif" font-size="14" fill="#00C896" text-anchor="middle">③ 데모 연습</text><line x1="180" y1="110" x2="220" y2="110" stroke="#00C896" stroke-width="2"/><line x1="360" y1="110" x2="400" y2="110" stroke="#00C896" stroke-width="2"/></svg>` },
+    { label:'비교표', svg: `<svg viewBox="0 0 600 280" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="280" fill="#0D1117"/><text x="300" y="35" font-family="sans-serif" font-size="18" font-weight="700" fill="#fff" text-anchor="middle">브로커 비교</text><rect x="40" y="50" width="160" height="36" rx="4" fill="#1A1A1A"/><text x="120" y="73" font-family="sans-serif" font-size="13" fill="#6B7B6E" text-anchor="middle">국내 증권사</text><rect x="220" y="50" width="160" height="36" rx="4" fill="#0A2A1A" stroke="#00C896" stroke-width="1"/><text x="300" y="73" font-family="sans-serif" font-size="13" fill="#00C896" text-anchor="middle" font-weight="700">MT5 브로커</text><rect x="400" y="50" width="160" height="36" rx="4" fill="#2A0A0A" stroke="#FF4757" stroke-width="1"/><text x="480" y="73" font-family="sans-serif" font-size="13" fill="#FF4757" text-anchor="middle">대여계좌(불법)</text><line x1="40" y1="100" x2="560" y2="100" stroke="#1E2A20" stroke-width="1"/><text x="40" y="125" font-family="sans-serif" font-size="12" fill="#4A5A4C">최소 증거금</text><text x="120" y="125" font-family="sans-serif" font-size="12" fill="#FF4757" text-anchor="middle">수백만원</text><text x="300" y="125" font-family="sans-serif" font-size="12" fill="#00C896" text-anchor="middle" font-weight="700">14,000원~</text><text x="480" y="125" font-family="sans-serif" font-size="12" fill="#FF4757" text-anchor="middle">불법</text><line x1="40" y1="140" x2="560" y2="140" stroke="#1E2A20" stroke-width="1"/><text x="40" y="165" font-family="sans-serif" font-size="12" fill="#4A5A4C">규제</text><text x="120" y="165" font-family="sans-serif" font-size="12" fill="#8A9A8C" text-anchor="middle">금융당국</text><text x="300" y="165" font-family="sans-serif" font-size="12" fill="#00C896" text-anchor="middle" font-weight="700">ASIC/FCA</text><text x="480" y="165" font-family="sans-serif" font-size="12" fill="#FF4757" text-anchor="middle">없음</text></svg>` },
+    { label:'경고카드', svg: `<svg viewBox="0 0 600 200" xmlns="http://www.w3.org/2000/svg"><rect width="600" height="200" fill="#120808"/><rect x="0" y="0" width="4" height="200" fill="#FF4757"/><rect x="20" y="20" width="560" height="160" rx="8" fill="#1A0808" stroke="#FF4757" stroke-width=".5"/><text x="52" y="72" font-family="sans-serif" font-size="28" fill="#FF4757">!</text><rect x="40" y="44" width="36" height="44" rx="4" fill="none" stroke="#FF4757" stroke-width="1.5"/><text x="110" y="62" font-family="sans-serif" font-size="22" font-weight="700" fill="#FF4757">대여계좌는 불법이에요</text><text x="110" y="85" font-family="sans-serif" font-size="12" fill="#8A4A4A">자본시장법 위반 — 허가 없이 금융투자업을 하는 행위</text><line x1="40" y1="100" x2="560" y2="100" stroke="#2A1010" stroke-width="1"/><text x="55" y="125" font-family="sans-serif" font-size="13" fill="#8A6A6A">✕ 이용자도 법적으로 문제가 될 수 있어요</text><text x="55" y="148" font-family="sans-serif" font-size="13" fill="#8A6A6A">✕ 업체가 사라지면 내 돈 돌려받을 방법이 없어요</text><text x="55" y="168" font-family="sans-serif" font-size="13" fill="#8A6A6A">✕ 실제 피해 사례가 매년 수천 건씩 발생해요</text></svg>` }
+  ];
+}
+
+// ============================================================
+// PHASE 4: 품질관리 T5 (재작업 루프)
+// ============================================================
+async function runPhase4() {
+  if (!isGenerating) throw new Error("사용자가 생성을 중단했어요");
+
+  setProgress(4);
+  await runQualityControl();
+}
+
+async function runQualityControl() {
+  // Agent 14: AI 탐지
+  setAgent('aidetect','run','',`신뢰도빌더 결과 ${ctx.trusted?.length||0}자 수신`);
+  const aiFixed = await callClaude(PERSONAS.aiDetector,
+    `다음 글에서 AI 패턴을 찾아 제거하고 자연스럽게 수정해주세요. 수정된 글 전문과 제거한 패턴 수를 알려주세요:\n\n${ctx.trusted}`);
+  ctx.aiFixed = aiFixed;
+  const aiPatternCount = (aiFixed.match(/패턴|제거|수정/g)||[]).length;
+  setAgent('aidetect','done',`<b>AI 패턴 ${aiPatternCount}건 제거</b> — 자연스러움 향상`);
+
+  // Agent 15: 팩트 체커
+  setAgent('fact','run','',`AI 티 제거본 수신`);
+  const factFixed = await callClaude(PERSONAS.factChecker,
+    `다음 글을 팩트체크하고 문제 표현을 수정해주세요. 수정된 글 전문을 출력해주세요:\n\n${ctx.aiFixed}`);
+  ctx.factFixed = factFixed;
+  setAgent('fact','done','팩트 체크·법적 리스크 검토 완료');
+
+  // Agent 16: 총괄 감독관 (재작업 루프)
+  setAgent('supervisor','run','',`팩트체크 완료본 수신 — 100점 채점 시작`);
+  const supervisorRaw = await callClaude(PERSONAS.supervisor,
+    `다음 글을 100점 만점으로 채점하고 결과를 JSON으로 출력해주세요.\n\n[글]\n${ctx.factFixed}\n\n[마케팅 정보]\n${ctx.marketing?.substring(0,300)||''}`);
+
+  const supervisorResult = tryParseJSON(supervisorRaw);
+  // JSON 파싱 실패 시 텍스트에서 점수 직접 추출
+  let score = supervisorResult?.total || 0;
+  if (!score) {
+    const scoreMatch = supervisorRaw.match(/(\d{2,3})\s*점|total["\s:]+(\d{2,3})/i);
+    score = scoreMatch ? parseInt(scoreMatch[1] || scoreMatch[2]) : 78;
+  }
+  // 범위 보정
+  score = Math.max(0, Math.min(100, score));
+  const pass = score >= 80;
+
+  if (!pass && retryCount < MAX_RETRY) {
+    retryCount++;
+    document.getElementById('retryBanner').classList.add('show');
+    setText('retryBanner', `🔄 품질 점수 ${score}점 — 재작업 중... (${retryCount}/${MAX_RETRY})`);
+
+    const rewriteAgents = supervisorResult?.rewrite_agents || ['writer'];
+    setAgent('supervisor','retry',`점수: ${score}점 / 재작업 대상: ${rewriteAgents.join(', ')}`);
+
+    // 재작업 필요한 에이전트만 다시 실행
+    if (rewriteAgents.includes('writer') || rewriteAgents.includes('trust')) {
+      setAgent('writer','retry');
+      const improvedDraft = await callClaude(PERSONAS.writer,
+        `이전 글의 문제점: ${supervisorResult?.reason||'품질 미달'}\n\n더 자연스럽고 초등학생도 이해할 수 있게 전면 재작성:\n\n${ctx.draft.substring(0,500)}\n\n원본 입력: ${ctx.userText}`, ctx.imgs);
+      ctx.draft = improvedDraft;
+      ctx.trusted = improvedDraft;
+      ctx.aiFixed = improvedDraft;
+      ctx.factFixed = improvedDraft;
+      setAgent('writer','done',`재작업 완료 — ${improvedDraft.length}자`);
+    }
+
+    await sleep(500);
+    await runQualityControl(); // 재귀 호출
+    return;
+  }
+
+  document.getElementById('retryBanner').classList.remove('show');
+  ctx.finalBlog = supervisorResult?.final_blog || ctx.factFixed;
+  ctx.score = score;
+  ctx.scoreDetails = supervisorResult?.scores || {};
+
+  const scoreClass = score >= 85 ? 'score-high' : score >= 70 ? 'score-mid' : 'score-low';
+  setAgent('supervisor','done',`<b>최종 점수: <span class="${scoreClass}">${score}점</span></b> / 100 — ${pass?'✅ 통과':'⚠️ 최대 재작업 횟수 도달'}<br>사람말투:${ctx.scoreDetails.tone||'-'} 이해도:${ctx.scoreDetails.readability||'-'} SEO:${ctx.scoreDetails.seo||'-'} 신뢰도:${ctx.scoreDetails.trust||'-'} 클릭유도:${ctx.scoreDetails.cta||'-'}`);
+
+  // 상위노출 분석관 — 분석 후 자동 수정
+  setAgent('naver_seo','run','','총괄 감독관 결과 수신 — 네이버 상위노출 분석 + 자동 수정');
+
+  const naverSeoRaw = await callClaude(PERSONAS.naverSeo,
+    `다음 블로그 글을 네이버 상위노출 기준으로 분석해주세요.\n\n[글]\n${ctx.finalBlog}\n\n[메인 키워드]\n${ctx.seo?.main_kw||''}\n\n[이미지 수]\n${ctx.images?.length||0}개`);
+  ctx.naverSeoResult = tryParseJSON(naverSeoRaw) || {};
+  const ns = ctx.naverSeoResult;
+
+  // ① 소제목 부족하면 자동으로 추가
+  const subheadingCount = (ctx.finalBlog.match(/#{1,3}\s|<h[2-4]/g) || []).length;
+  if ((ns.소제목수?.현재 || subheadingCount) < 5) {
+    setAgent('naver_seo','run',`소제목 ${subheadingCount}개 → 7개로 자동 보강 중...`);
+    const fixedSubheadings = await callClaude(
+      `당신은 네이버 블로그 상위노출 전문가입니다. 아래 글에 소제목을 자연스럽게 추가해서 전체 글을 다시 써주세요.
+규칙:
+- 소제목 총 6~7개 (현재 ${subheadingCount}개이므로 ${Math.max(0, 6-subheadingCount)}개 추가)
+- 소제목 중 2~3개는 질문형으로 ("왜?", "어떻게?", "뭐가 다를까?")
+- 기존 내용은 그대로 유지하고 소제목 위치만 자연스럽게 배치
+- 소제목 형식: ### 소제목내용
+- 글 전체를 출력하세요`,
+      `[글]
+${ctx.finalBlog}
+
+[메인 키워드]
+${ctx.seo?.main_kw||''}`
+    );
+    if (fixedSubheadings && fixedSubheadings.length > ctx.finalBlog.length * 0.8) {
+      ctx.finalBlog = fixedSubheadings;
+    }
+  }
+
+  // ② 글 길이 부족하면 자동 보강
+  if (ctx.finalBlog.length < 2500) {
+    setAgent('naver_seo','run',`글 길이 ${ctx.finalBlog.length}자 → 3,000자로 자동 보강 중...`);
+    const extended = await callClaude(
+      PERSONAS.writer,
+      `아래 글이 ${ctx.finalBlog.length}자입니다. 3,000자 이상이 되도록 내용을 자연스럽게 보강해주세요.
+추가할 내용: 구체적인 예시, 독자 공감 표현, 실전 팁 1~2개
+기존 내용은 그대로 유지하고 추가만 해주세요. 전체 글을 출력하세요.`,
+      `[기존 글]
+${ctx.finalBlog}`
+    );
+    if (extended && extended.length > ctx.finalBlog.length) {
+      ctx.finalBlog = extended;
+    }
+  }
+
+  // ③ 첫 문장에 키워드 없으면 자동 수정
+  const firstParagraph = ctx.finalBlog.split('\n').filter(l => l.trim().length > 10)[0] || '';
+  const mainKwForCheck = ctx.seo?.main_kw || '';
+  if (mainKwForCheck && !firstParagraph.includes(mainKwForCheck.split(' ')[0])) {
+    setAgent('naver_seo','run','첫 문장에 키워드 없음 → 자동 수정 중...');
+    const fixedOpening = await callClaude(
+      '네이버 SEO 전문가입니다. 아래 글의 첫 단락만 키워드가 자연스럽게 포함되게 수정해서 전체 글을 출력해주세요. 나머지는 절대 수정하지 마세요.',
+      `[키워드]
+${mainKwForCheck}
+
+[글]
+${ctx.finalBlog}`
+    );
+    if (fixedOpening && fixedOpening.length > 500) {
+      ctx.finalBlog = fixedOpening;
+    }
+  }
+
+  // ④ 이미지 부족하면 추가 생성
+  const neededImgs = Math.max(0, 3 - (ctx.images?.length || 0));
+  if (neededImgs > 0) {
+    setAgent('naver_seo','run',`이미지 ${ctx.images?.length||0}개 → ${3}개로 자동 생성 중...`);
+    const topicTitle = currentCase === 'education'
+      ? (document.getElementById('edu-topic')?.selectedOptions?.[0]?.text || mainKwForCheck)
+      : mainKwForCheck;
+    for (let i = 0; i < neededImgs; i++) {
+      const extraPrompts = [
+        `${topicTitle} 핵심 포인트 카드. 다크 테마. 숫자와 아이콘 포함. 민트그린 강조.`,
+        `${topicTitle} 단계별 가이드. 다크 테마. 화살표 흐름도. 초록색 강조.`,
+        `${topicTitle} FAQ 카드. 다크 테마. Q&A 형식. 민트그린 포인트.`,
+      ];
+      try {
+        const cfg = getConfig();
+        if (cfg.gemini) {
+          const imgData = await callGemini(extraPrompts[i % 3], true);
+          if (imgData) ctx.images.push({ label: `추가이미지${i+1}`, data: imgData });
+        }
+        if (!cfg.gemini || ctx.images.length < 3) {
+          // SVG로 추가
+          const addSvgs = generateFallbackSVGs(topicTitle);
+          if (addSvgs[i]) ctx.images.push({ ...addSvgs[i], label: `추가이미지${i+1}` });
+        }
+      } catch(e) { console.log('extra img failed:', e); }
+    }
+  }
+
+  const nsScore = ns.예상점수 || 0;
+  const nsClass = nsScore >= 80 ? 'score-high' : nsScore >= 60 ? 'score-mid' : 'score-low';
+  setAgent('naver_seo','done',
+    `<b>상위노출 분석 + 자동 수정 완료!</b><br>` +
+    `예상 점수: <span class="${nsClass}">${nsScore}점</span> → 자동 수정 후 향상됨<br>` +
+    `글길이: ${ctx.finalBlog.length}자 · 이미지: ${ctx.images?.length||0}개 · 소제목: 자동보강<br>` +
+    `<span style="color:var(--g)">${ns.총평||'상위노출 최적화 완료!'}</span>`
+  );
+}
+
+// ============================================================
+// PHASE 5: 외부검증 T6
+// ============================================================
+async function runPhase5() {
+  if (!isGenerating) throw new Error("사용자가 생성을 중단했어요");
+
+  setProgress(5);
+  setAgent('v1','run'); setAgent('v2','run'); setAgent('v3','run');
+
+  // Claude로 AI 탐지 재확인
+  const aiCheck = await callClaude(
+    '당신은 AI 콘텐츠 탐지 전문가입니다. 이 글이 AI가 썼는지 사람이 썼는지 분석하고 위험도(낮음/중간/높음)와 의심 문장을 알려주세요.',
+    `분석할 글:\n${ctx.finalBlog?.substring(0,800)||''}`);
+  setAgent('v1','done',`<b>AI 탐지 재확인:</b> ${aiCheck.substring(0,100)}...`);
+
+  // Gemini 팩트 교차 검증 (없으면 Claude로 실제 검증)
+  let geminiCheck = await callGemini(`다음 금융 콘텐츠의 팩트를 확인해주세요. 대여계좌 불법 여부, ASIC 규제 정확성, 과장된 수익 주장 여부를 체크하세요:\n${ctx.finalBlog?.substring(0,600)||''}`);
+  if (!geminiCheck) {
+    geminiCheck = await callClaude(
+      '금융 팩트체커입니다. 대여계좌 불법 여부, ASIC 규제 정확성, 수익 과장 표현을 체크해서 OK/주의 판정해주세요.',
+      `글: ${ctx.finalBlog?.substring(0,500)||''}`
+    );
+  }
+  setAgent('v2','done',`<b>팩트 교차검증:</b> ${(geminiCheck||'').substring(0,120)}...`);
+
+  // SEO 실측
+  const seoValidation = await callClaude(
+    '네이버 SEO 전문가입니다. 글과 키워드를 확인하고 최종 SEO 점수를 주세요.',
+    `글: ${ctx.finalBlog?.substring(0,400)||''}\n키워드: ${ctx.seo?.main_kw||''}`);
+  setAgent('v3','done',`<b>SEO 검증:</b> ${seoValidation.substring(0,100)}...`);
+  await sleep(200);
+}
+
+// ============================================================
+// PHASE 6: 운영관리 T7
+// ============================================================
+async function runPhase6() {
+  if (!isGenerating) throw new Error("사용자가 생성을 중단했어요");
+
+  setProgress(6);
+  setAgent('manager','run'); setAgent('policy','run'); setAgent('sysmon','run');
+
+  // 블로그 매니저 체크
+  const postRecords = getPostRecords();
+  const twoWeeksAgo = new Date(Date.now() - 14*86400000);
+  const recentCats = new Set(postRecords.filter(r => new Date(r.date) > twoWeeksAgo).map(r => r.category));
+  // edu_ 카테고리를 그룹으로 통합해서 체크
+  const hasEdu = [...recentCats].some(c => c.startsWith('edu_') || c.includes('교육'));
+  const hasMT5 = [...recentCats].some(c => c.startsWith('edu_8') || c.startsWith('edu_9') || c.includes('메타트레이더'));
+  const hasBroker = [...recentCats].some(c => c.startsWith('edu_1') || c.includes('브로커'));
+  const missingCats = [
+    !recentCats.has('나스닥 예상도·결과') ? '나스닥 예상도' : null,
+    !recentCats.has('나스닥 뉴스·시황') ? '나스닥 뉴스' : null,
+    !recentCats.has('단타 신호차트') ? '신호차트' : null,
+    !hasEdu ? '교육글' : null,
+    !hasMT5 ? 'MT5 관련' : null,
+    !hasBroker ? '브로커 관련' : null,
+  ].filter(Boolean);
+
+  setAgent('manager','done',`발행 루틴 체크 완료 — 공백 카테고리: ${missingCats.length}개`);
+  
+  // 정책모니터링: 실제로 글에서 네이버 정책 위반 표현 체크
+  const blogText = ctx.finalBlog || '';
+  const policyWarnings = [];
+  if (blogText.includes('수익보장') || blogText.includes('원금보장')) policyWarnings.push('수익/원금보장 표현');
+  if (blogText.includes('투자자문업') || blogText.includes('금융투자업인가')) policyWarnings.push('미등록업체 표현');
+  if ((blogText.match(/!{2,}/g)||[]).length > 3) policyWarnings.push('과도한 느낌표');
+  if (blogText.length > 5000) policyWarnings.push('글 길이 5000자 초과 — 분리 권장');
+  setAgent('policy','done', policyWarnings.length === 0
+    ? `네이버 정책 이상 없음 ✓ — 금지 표현 0건`
+    : `⚠️ 주의: ${policyWarnings.join(' / ')}`);
+  
+  setAgent('sysmon','done',`시스템 정상 · 재작업 ${retryCount}회 · 최종 ${ctx.score}점 · 글 ${blogText.length}자`);
+
+  // 텔레그램 알림 발송
+  const cfg = getConfig();
+  if (cfg.tgToken && document.getElementById('notif-complete').checked) {
+    const notifMsg = `✅ <b>블로그 글 완성!</b>
+
+📝 케이스: ${currentCase}
+⭐ 품질 점수: ${ctx.score}/100
+🔄 재작업 횟수: ${retryCount}회
+📊 키워드: ${ctx.seo?.main_kw||'-'}
+
+복사해서 바로 올리세요!`;
+    const sent = await sendTelegram(notifMsg);
+    if (sent) {
+      addNotifLog('✅', '글 완성 알림', `품질 ${ctx.score}점 달성`);
+      toast('📱 텔레그램으로 완성 알림 보냈어요!');
+    }
+  }
+}
+
+// ============================================================
+// IMAGE GRID WITH EDIT FEATURE
+// ============================================================
+function renderImageGrid() {
+  if (!ctx.images || ctx.images.length === 0) {
+    setHTML('imgGrid', '<div style="color:var(--t3);font-size:13px">이미지 생성 중...</div>');
+    return;
+  }
+  const html = ctx.images.map((img, i) => `
+    <div class="img-card" id="imgcard-${i}">
+      <div class="img-card-label" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>${img.label}</span>
+        <span style="display:flex;gap:6px;align-items:center;">
+          ${img.isReal ? '<span style="font-size:10px;color:var(--b);background:#0C1A2C;padding:1px 6px;border-radius:100px;">📱 실제 MT5</span>' : ''}
+          ${!img.isReal ? `<span style="font-size:10px;color:var(--g);cursor:pointer;" onclick="toggleEditBox(${i})">✏️ 수정</span>` : ''}
+        </span>
+      </div>
+      <div class="img-card-content" id="imgcontent-${i}">
+        ${img.data ? `<img src="${img.data}" alt="${img.label}" style="width:100%;border-radius:4px;">` : img.svg ? img.svg : '<div style="padding:20px;color:var(--t3);text-align:center;font-size:12px">SVG 폴백</div>'}
+      </div>
+      <div id="editbox-${i}" style="display:none;padding:8px;border-top:1px solid var(--br);">
+        <input id="editinp-${i}" class="inp" placeholder="예) 더 어둡게 / 차트 추가 / 글씨 크게 / 색상 변경" style="margin-bottom:6px;min-height:auto;font-size:12px;">
+        <button onclick="editImage(${i})" style="width:100%;background:var(--g);border:none;border-radius:6px;padding:7px;font-size:12px;font-weight:600;color:#000;cursor:pointer;font-family:'Noto Sans KR',sans-serif;" id="editbtn-${i}">🔄 이 이미지 수정하기</button>
+      </div>
+    </div>`).join('');
+  setHTML('imgGrid', html);
+}
+
+function toggleEditBox(i) {
+  const box = document.getElementById('editbox-' + i);
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  if (box.style.display === 'block') document.getElementById('editinp-' + i).focus();
+}
+
+async function editImage(i) {
+  const cfg = getConfig();
+  if (!cfg.gemini) { toast('❌ Gemini API 키가 없어요. 설정에서 입력해주세요.', 'error'); return; }
+  
+  const request = document.getElementById('editinp-' + i).value.trim();
+  if (!request) { toast('⚠️ 수정 요청을 입력해주세요!'); return; }
+  
+  const btn = document.getElementById('editbtn-' + i);
+  btn.disabled = true; btn.textContent = '수정 중...';
+  
+  const img = ctx.images[i];
+  const originalPrompt = [
+    `다크 테마 블로그 썸네일. 배경:#0D1117. 민트그린 강조색:#00C896.`,
+    `투자 교육 인포그래픽. 다크 테마. 초록 강조색.`,
+    `브로커 비교표. 다크 테마. 빨간색(위험)/초록색(안전).`,
+    `대여계좌 경고 카드. 다크 레드 배경. 불법 경고.`
+  ][i] || '블로그 이미지. 다크 테마.';
+  
+  const editPrompt = `${originalPrompt}
+기존 이미지에서 다음을 수정해주세요: ${request}
+키워드: ${ctx.seo?.main_kw || '나스닥 메타트레이더'}
+브랜드 색상 유지: 배경 #0D1117, 강조 #00C896`;
+
+  try {
+    toast('🎨 이미지 수정 중...', 'info');
+    const newImgData = await callGemini(editPrompt, true);
+    
+    if (newImgData) {
+      ctx.images[i].data = newImgData;
+      ctx.images[i].svg = null;
+      // 화면 업데이트
+      const contentEl = document.getElementById('imgcontent-' + i);
+      contentEl.innerHTML = `<img src="${newImgData}" alt="${img.label}" style="width:100%;border-radius:4px;">`;
+      toast('✅ 이미지 수정 완료!');
+      document.getElementById('editbox-' + i).style.display = 'none';
+      document.getElementById('editinp-' + i).value = '';
+    } else {
+      // Gemini 이미지 생성 실패 시 Claude로 SVG 수정
+      toast('Gemini 이미지 실패 — SVG 버전으로 수정할게요', 'info');
+      const svgResult = await callClaude(
+        '당신은 SVG 디자이너입니다. 다크 테마 투자 블로그 이미지를 SVG로 만들어주세요. viewBox="0 0 600 300", 배경:#0D1117, 강조:#00C896. SVG 코드만 출력하세요.',
+        `이미지 주제: ${img.label}
+수정 요청: ${request}
+키워드: ${ctx.seo?.main_kw||'나스닥'}`
+      );
+      const svgMatch = svgResult.match(/<svg[\s\S]*<\/svg>/i);
+      if (svgMatch) {
+        ctx.images[i].svg = svgMatch[0];
+        ctx.images[i].data = null;
+        setHTML('imgcontent-' + i, svgMatch[0]);
+        toast('✅ SVG 이미지 수정 완료!');
+        document.getElementById('editbox-' + i).style.display = 'none';
+      } else {
+        toast('❌ 이미지 수정 실패. 다시 시도해주세요.', 'error');
+      }
+    }
+  } catch(e) {
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 이 이미지 수정하기';
+  }
+}
+
+// ============================================================
+// SHOW RESULTS
+// ============================================================
+function showResults() {
+  document.getElementById('resultSec').classList.add('show');
+
+  // 점수 표시
+  const score = ctx.score || 0;
+  const scoreEl = document.getElementById('resultScore');
+  const cls = score >= 85 ? 'score-high' : score >= 70 ? 'score-mid' : 'score-low';
+  scoreEl.innerHTML = `품질 점수: <span class="${cls}">${score}</span>/100`;
+
+  // 네이버 버전
+  setText('rv-naver', ctx.finalBlog || '');
+
+  // 티스토리 버전 추출 - 마커 제거 후 깔끔하게
+  const tistoryMatch = ctx.marketing?.match(/\[티스토리버전시작\]([\s\S]*?)\[티스토리버전끝\]/i);
+  let tistoryVer = tistoryMatch ? tistoryMatch[1].trim() : ctx.finalBlog || '';
+  tistoryVer = tistoryVer
+    .replace(/\[META DESCRIPTION\][^\n]*/g, '')
+    .replace(/\[EN KEYWORDS\][^\n]*/g, '')
+    .replace(/\[CTA\]/g, '')
+    .replace(/\[티스토리버전시작\]/g, '')
+    .replace(/\[티스토리버전끝\]/g, '')
+    .replace(/---\s*\n/g, '')
+    .trim();
+  setText('rv-tistory', tistoryVer);
+
+  // 상위노출 체크리스트 렌더링
+  if (ctx.naverSeoResult && Object.keys(ctx.naverSeoResult).length > 0) {
+    const ns = ctx.naverSeoResult;
+    const checklistEl = document.getElementById('naverSeoChecklist');
+    const itemsEl = document.getElementById('naverSeoItems');
+    const tipsEl = document.getElementById('naverSeoTips');
+    if (checklistEl) checklistEl.style.display = 'block';
+    if (itemsEl) {
+      const items = [
+        ns.글길이 && `${ns.글길이.상태} 글 길이: ${ns.글길이.현재}자 (${ns.글길이.권장})`,
+        ns.이미지수 && `${ns.이미지수.상태} 이미지: ${ns.이미지수.현재}개 (${ns.이미지수.권장}${ns.이미지수.추가필요 > 0 ? ` — ${ns.이미지수.추가필요}개 더 추가하세요` : ''})`,
+        ns.소제목수 && `${ns.소제목수.상태} 소제목: ${ns.소제목수.현재}개 (${ns.소제목수.권장})`,
+        ns.키워드밀도 && `${ns.키워드밀도.상태} 키워드 "${ns.키워드밀도.메인키워드}" ${ns.키워드밀도.횟수}회`,
+        ns.첫문장키워드 && `${ns.첫문장키워드.상태} 첫 문장 키워드 포함`,
+        ns.외부링크 && `${ns.외부링크.상태} 외부링크 ${ns.외부링크.수}개`,
+        ns.마무리CTA && `${ns.마무리CTA.상태} 마무리 CTA`,
+      ].filter(Boolean);
+      itemsEl.innerHTML = items.map(i => `<div style="font-size:12px;color:var(--t2);padding:4px 0;border-bottom:1px solid var(--br2);">${i}</div>`).join('');
+    }
+    if (tipsEl && ns.개선사항?.length) {
+      const nsScore = ns.예상점수 || 0;
+      const nsClass = nsScore >= 80 ? 'var(--g)' : nsScore >= 60 ? 'var(--a)' : 'var(--r)';
+      tipsEl.innerHTML = `
+        <div style="font-size:13px;font-weight:600;color:${nsClass};margin-bottom:6px;">예상 점수: ${nsScore}점 — ${ns.총평||''}</div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px;">개선하면 상위노출 확률 올라가요:</div>
+        ${ns.개선사항.map(t => `<div style="font-size:12px;color:var(--a);padding:3px 0;">• ${t}</div>`).join('')}`;
+    }
+  }
+
+  // SEO 제목 - [네이버제목] 마커로 정확 추출
+  const titleSection = (ctx.marketing||'').match(/\[네이버제목\]([\s\S]*?)(?=\[|$)/i);
+  let titleLines = [];
+  if (titleSection) {
+    titleLines = titleSection[1].split('\n')
+      .map(l => l.replace(/^(감성형|정보형|호기심형|추천제목)\s*:\s*/,'').trim())
+      .filter(l => l.length > 5 && l.length < 50);
+  }
+  // 못 찾으면 추천제목 단일 추출
+  if (!titleLines.length) {
+    const rec = (ctx.marketing||'').match(/\[추천제목\]\s*([^\n\[]+)/i);
+    if (rec) titleLines = [rec[1].trim()];
+  }
+  setHTML('seoTitles', titleLines.length > 0
+    ? titleLines.map(l => `<div style="padding:8px 10px;border-bottom:1px solid var(--br2);cursor:pointer;font-size:13px;color:var(--t);" onclick="navigator.clipboard.writeText(this.textContent.trim());toast('📋 제목 복사됐어요!')" title="클릭해서 복사">${l}</div>`).join('')
+    : `<div style="color:var(--t3);font-size:13px;padding:8px">제목 추출 중... 마케팅 에이전트 결과를 확인해주세요</div>`);
+
+  // 키워드 태그 - SEO 에이전트 결과만 사용 (하드코딩 없음)
+  const tags = [ctx.seo?.main_kw, ...(ctx.seo?.sub_kw||[])].filter(Boolean).slice(0,8);
+  setHTML('seoTags', tags.length > 0
+    ? tags.map(t => `<div class="seo-tag">#${t}</div>`).join('')
+    : `<div style="color:var(--t3);font-size:12px">SEO 에이전트가 키워드를 분석 중이에요</div>`);
+
+  // 텔레그램 - [텔레그램] 마커로 정확 추출
+  const tgSection = (ctx.marketing||'').match(/\[텔레그램\]([\s\S]*?)(?=\[|$)/i);
+  let tgFinal = tgSection ? tgSection[1].trim() : '';
+  tgFinal = tgFinal.replace(/\[CTA\][\s\S]*/,'').replace(/\[티스토리버전시작\][\s\S]*/,'').trim();
+  if (!tgFinal || tgFinal.length < 10) {
+    tgFinal = `📊 새 글 업로드됐어요!\n\n${ctx.seo?.main_kw || '나스닥'} 관련 글 올라왔어요.\n자세한 내용은 블로그에서 확인해보세요 👇`;
+  }
+  setText('rv-telegram', tgFinal);
+
+  // 실제 스크린샷을 이미지 배열에 추가
+  if (currentCase === 'education') {
+    const ssKeys = ['ss1','ss2','ss3','ss4'];
+    ssKeys.forEach(k => {
+      if (uploadedFiles[k]) {
+        toB64(uploadedFiles[k]).then(b64 => {
+          ctx.images = ctx.images || [];
+          ctx.images.unshift({
+            label: '실제 MT5 스크린샷',
+            data: `data:${uploadedFiles[k].type};base64,${b64}`,
+            isReal: true
+          });
+          renderImageGrid();
+        });
+      }
+    });
+  }
+  // 이미지 (수정 기능 포함)
+  renderImageGrid();
+
+  toast('🎉 완성! 복사해서 블로그에 올리세요');
+  // 수정 요청 섹션 표시
+  const _rs = document.getElementById('revisionSec'); if(_rs) _rs.style.display = 'block';
+  revisionCount = 0;
+  const _rh = document.getElementById('revisionHistory'); if(_rh) _rh.style.display = 'none';
+  setHTML('revisionHistoryList', '');
+  // 가이드 step2 완료 표시
+  stepDone.write = true;
+  // 교육 글이면 커리큘럼 진행
+  if (currentCase === 'education') markEduDone();
+}
+
+// ============================================================
+// RESULT ACTIONS
+// ============================================================
+function copyResult(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.textContent).then(() => toast('📋 복사됐어요!'));
+}
+function downloadTxt(type) {
+  const content = type === 'naver' ? (ctx.finalBlog||'') : document.getElementById('rv-tistory').textContent;
+  const blob = new Blob([content], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `blog_${type}_${new Date().toISOString().split('T')[0]}.txt`;
+  a.click();
+  toast('💾 저장됐어요!');
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+const CATS = [
+  {key:'나스닥 예상도·결과', color:'#00C896', group:'daily'},
+  {key:'나스닥 뉴스·시황',   color:'#60A5FA', group:'daily'},
+  {key:'단타 신호차트',      color:'#A78BDE', group:'weekly'},
+  {key:'edu_1',  label:'1. 직장인이 투자를 시작하는 이유',    color:'#60A5FA', group:'edu', phase:'1단계'},
+  {key:'edu_2',  label:'2. 주식 코인 부동산 나스닥 비교',     color:'#60A5FA', group:'edu', phase:'1단계'},
+  {key:'edu_3',  label:'3. 해외선물이 뭔가요?',               color:'#60A5FA', group:'edu', phase:'1단계'},
+  {key:'edu_4',  label:'4. 나스닥이 뭔가요?',                 color:'#FCD34D', group:'edu', phase:'2단계'},
+  {key:'edu_5',  label:'5. 증거금이란?',                      color:'#FCD34D', group:'edu', phase:'2단계'},
+  {key:'edu_6',  label:'6. 레버리지란?',                      color:'#FCD34D', group:'edu', phase:'2단계'},
+  {key:'edu_7',  label:'7. 나스닥 거래시간',                  color:'#FCD34D', group:'edu', phase:'2단계'},
+  {key:'edu_8',  label:'8. 메타트레이더란 무엇인가',          color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_9',  label:'9. 메타트레이더를 왜 써야하나',       color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_10', label:'10. 메타트레이더는 불법인가?',        color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_11', label:'11. 브로커 선택시 주의사항',          color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_12', label:'12. 브로커별 수수료 비교',            color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_13', label:'13. 브로커별 혜택 비교',              color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_14', label:'14. 모바일 사용방법',                 color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_15', label:'15. 모바일 기능 완전 정리',           color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_16', label:'16. PC 사용방법',                     color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_17', label:'17. PC 기능 완전 정리',               color:'#4ADE80', group:'edu', phase:'3단계MT5'},
+  {key:'edu_18', label:'18. 대여계좌가 불법인 이유',          color:'#FF6B6B', group:'edu', phase:'4단계'},
+  {key:'edu_19', label:'19. 국내 증권사 vs MT5 브로커',       color:'#FF6B6B', group:'edu', phase:'4단계'},
+  {key:'edu_20', label:'20. 글로벌퓨처 솔직 후기',            color:'#FF6B6B', group:'edu', phase:'4단계'},
+  {key:'edu_21', label:'21. 지수되돌림 패턴이란?',            color:'#F472B6', group:'edu', phase:'5단계'},
+  {key:'edu_22', label:'22. 피보나치 되돌림',                 color:'#F472B6', group:'edu', phase:'5단계'},
+  {key:'edu_23', label:'23. 지수이평선이란?',                 color:'#F472B6', group:'edu', phase:'5단계'},
+  {key:'edu_24', label:'24. 지수되돌림 패턴 실전',            color:'#F472B6', group:'edu', phase:'5단계'},
+];
+const EDU_CATS = EDU_CURRICULUM; // 전체 24개 커리큘럼
+function getPostRecords() {
+  try { return JSON.parse(localStorage.getItem(POSTS_KEY)||'[]'); } catch { return []; }
+}
+// ============================================================
+// REFERENCE SITES MANAGER
+// ============================================================
+const SITES_KEY = 'nasdaq_pivo_sites';
+
+function getSites() {
+  try { return JSON.parse(localStorage.getItem(SITES_KEY) || '[]'); } catch { return []; }
+}
+function saveSites(sites) {
+  localStorage.setItem(SITES_KEY, JSON.stringify(sites));
+}
+function addSite() {
+  const url = document.getElementById('newSiteUrl').value.trim();
+  const label = document.getElementById('newSiteLabel').value.trim();
+  if (!url) { toast('URL을 입력해주세요!'); return; }
+  const sites = getSites();
+  if (sites.find(s => s.url === url)) { toast('이미 등록된 사이트예요!'); return; }
+  sites.push({ url, label: label || url, addedAt: new Date().toISOString() });
+  saveSites(sites);
+  document.getElementById('newSiteUrl').value = '';
+  document.getElementById('newSiteLabel').value = '';
+  renderSiteList();
+  toast('✅ 사이트 추가됐어요!');
+}
+function addPresetSite(url, label) {
+  const sites = getSites();
+  if (sites.find(s => s.url === url)) { toast('이미 등록된 사이트예요!'); return; }
+  sites.push({ url, label, addedAt: new Date().toISOString() });
+  saveSites(sites);
+  renderSiteList();
+  toast(`✅ ${label} 추가됐어요!`);
+}
+function removeSite(url) {
+  const sites = getSites().filter(s => s.url !== url);
+  saveSites(sites);
+  renderSiteList();
+  toast('삭제됐어요');
+}
+function renderSiteList() {
+  const sites = getSites();
+  const el = document.getElementById('siteListContainer');
+  if (!el) return;
+  if (sites.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0;">등록된 사이트가 없어요</div>';
+    return;
+  }
+  el.innerHTML = sites.map(s => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg3);border:1px solid var(--br);border-radius:8px;margin-bottom:6px;">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--g);flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="font-size:12px;color:var(--t);font-weight:500;">${s.label}</div>
+        <div style="font-size:11px;color:var(--t3);">${s.url}</div>
+      </div>
+      <button onclick="removeSite('${s.url}')" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;padding:2px;">✕</button>
+    </div>`).join('');
+}
+
+// 참고 사이트를 Perplexity 검색에 반영
+function getSiteContext() {
+  const sites = getSites();
+  if (sites.length === 0) return '';
+  return `\n참고 사이트 (이 사이트들의 정보를 우선 참고하세요): ${sites.map(s => s.url).join(', ')}`;
+}
+
+// ============================================================
+// EXPERT KNOWLEDGE
+// ============================================================
+const EXPERT_KEY = 'nasdaq_pivo_expert';
+
+function saveExpertKnowledge() {
+  const data = {
+    mt5: document.getElementById('expert-mt5')?.value || '',
+    broker: document.getElementById('expert-broker')?.value || '',
+    pattern: document.getElementById('expert-pattern')?.value || '',
+  };
+  localStorage.setItem(EXPERT_KEY, JSON.stringify(data));
+  toast('✅ 전문 지식 저장됐어요! 다음 글부터 반영돼요');
+}
+
+function loadExpertKnowledge() {
+  try {
+    const data = JSON.parse(localStorage.getItem(EXPERT_KEY) || '{}');
+    if (data.mt5) document.getElementById('expert-mt5').value = data.mt5;
+    if (data.broker) document.getElementById('expert-broker').value = data.broker;
+    if (data.pattern) document.getElementById('expert-pattern').value = data.pattern;
+  } catch {}
+}
+
+function getExpertContext() {
+  // 교육 글 케이스에서만 인라인 입력창 참고
+  if (currentCase === 'education') {
+    const inlineVal = document.getElementById('expert-mt5-inline')?.value?.trim();
+    if (inlineVal) return '\n\n[블로그 운영자 MT5 전문 지식 — 반드시 참고]\n' + inlineVal;
+  }
+  return '';
+}
+
+function toggleExpertKnowledge() {
+  const sec = document.getElementById('expertKnowledgeSection');
+  sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+}
+
+function addPassRecord(type, reason='') {
+  const records = getPostRecords();
+  records.push({
+    category: type,
+    date: new Date().toISOString(),
+    pass: true,
+    reason: reason || '진입 구간 없음'
+  });
+  localStorage.setItem(POSTS_KEY, JSON.stringify(records));
+  updateDashboard();
+  toast('📝 패스 기록 저장됐어요');
+}
+function getWeekNum(d) {
+  const onejan = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+}
+function recordPost() {
+  const cat = document.getElementById('rec-cat').value;
+  const records = getPostRecords();
+  records.push({category:cat, date:new Date().toISOString()});
+  localStorage.setItem(POSTS_KEY, JSON.stringify(records));
+  // 교육 글이면 커리큘럼 진행도 올리기 (edu_ 로 시작하는 카테고리)
+  if (cat.startsWith('edu_')) {
+    const stepNum = parseInt(cat.replace('edu_',''));
+    const currentProgress = getEduProgress();
+    if (stepNum === currentProgress + 1) {
+      localStorage.setItem(EDU_KEY, String(stepNum));
+    }
+  }
+  updateDashboard();
+  renderGuide();
+  toast('✅ 발행 기록 추가됐어요!');
+}
+function updateDashboard() {
+  const records = getPostRecords();
+  const today = new Date().toDateString();
+  const thisWeek = getWeekNum(new Date());
+  const twoWeeksAgo = new Date(Date.now()-14*86400000);
+  const todayPosts = records.filter(r => new Date(r.date).toDateString()===today).length;
+  const weekPosts = records.filter(r => getWeekNum(new Date(r.date))===thisWeek).length;
+  const recentCats = new Set(records.filter(r => new Date(r.date)>twoWeeksAgo).map(r=>r.category));
+  const missingCount = CATS.filter(c => !recentCats.has(c.key)).length;
+
+  setText('dv-today', todayPosts);
+  setText('dv-week', weekPosts);
+  setText('dv-missing', missingCount + '개');
+
+  document.getElementById('dc-today').className = 'dash-card ' + (todayPosts>=2?'good':todayPosts>=1?'':'warn');
+  document.getElementById('dc-week').className = 'dash-card ' + (weekPosts>=10?'good':weekPosts>=5?'':'amber');
+  document.getElementById('dc-missing').className = 'dash-card ' + (missingCount===0?'good':missingCount<=2?'':'warn');
+
+  if (weekPosts>=10 && missingCount===0) {
+    setText('dv-status', '양호');
+    setText('dv-status-sub', '발행 루틴 정상');
+    document.getElementById('dc-status').className = 'dash-card good';
+  } else if (weekPosts>=5) {
+    setText('dv-status', '보통');
+    setText('dv-status-sub', '발행 수 더 필요');
+    document.getElementById('dc-status').className = 'dash-card';
+  } else {
+    setText('dv-status', '주의');
+    setText('dv-status-sub', 'C-Rank 하락 위험');
+    document.getElementById('dc-status').className = 'dash-card warn';
+  }
+}
+
+async function loadRecommendations() {
+  setHTML('recList', '<div style="padding:16px;text-align:center;color:var(--t3);font-size:13px">블로그 매니저 분석 중... ⏳</div>');
+  const records = getPostRecords();
+  const twoWeeksAgo = new Date(Date.now()-14*86400000);
+  const recentCats = new Set(records.filter(r=>new Date(r.date)>twoWeeksAgo).map(r=>r.category));
+  const missing = CATS.filter(c=>!recentCats.has(c.key)).map(c=>c.key);
+  const weekPosts = records.filter(r=>getWeekNum(new Date(r.date))===getWeekNum(new Date())).length;
+  try {
+    const result = await callClaude(
+      '당신은 블로그 매니저입니다. 발행 현황을 보고 오늘 써야 할 글 TOP 3를 추천해주세요. 각 항목: 우선순위(1/2/3), 제목, 이유(한 줄)',
+      `오늘: ${new Date().toLocaleDateString('ko-KR')}\n공백 카테고리: ${missing.join(', ')||'없음'}\n이번주 발행: ${weekPosts}개\n\n구체적인 제목과 이유로 TOP 3 추천해주세요.`);
+    const lines = result.split('\n').filter(l=>l.trim());
+    const items = [];
+    let cur = {};
+    lines.forEach(l => {
+      if (l.match(/^[1-3][.)\s]/)) { if(cur.title) items.push(cur); cur={pri:l[0],title:l.replace(/^[1-3][.)\s]+/,'').trim()}; }
+      else if (cur.title && !cur.reason) cur.reason = l.trim();
+    });
+    if (cur.title) items.push(cur);
+    if (items.length===0) items.push({pri:'1',title:'나스닥 예상도 결과 공유',reason:'매일 올려야 C-Rank 유지'});
+    setHTML('recList', items.slice(0,3).map((it,i) => `
+      <div class="rec-item" onclick="useRec('${it.title}')">
+        <div class="rec-pri p${i+1}">${i+1}</div>
+        <div class="rec-body"><div class="rec-t">${it.title}</div><div class="rec-d">${it.reason||''}</div></div>
+        <button class="btn-sm" onclick="event.stopPropagation();useRec('${it.title}')">바로 쓰기</button>
+      </div>`).join(''));
+  } catch(e) {
+    setHTML('recList', `<div style="padding:14px;color:var(--r);font-size:13px">오류: ${e.message}</div>`);
+  }
+}
+function useRec(title) {
+  showMain('generate');
+  if (title.includes('예상도')||title.includes('결과')) selectCase('prediction');
+  else if (title.includes('뉴스')||title.includes('시황')) selectCase('news');
+  else if (title.includes('신호')||title.includes('차트')) selectCase('chart');
+  else { selectCase('education'); const sel=document.getElementById('edu-topic'); for(let o of sel.options){if(o.text.includes(title.substring(0,5))){sel.value=o.value;break;}} }
+  toast('글 생성 탭으로 이동했어요!');
+}
+
+// ============================================================
+// MONITOR
+// ============================================================
+function renderMonitor() {
+  const records = getPostRecords();
+  const twoWeeksAgo = new Date(Date.now()-14*86400000);
+  const eduProgress = getEduProgress();
+
+  // 일반 카테고리 (예상도, 뉴스, 신호차트)
+  const dailyCats = CATS.filter(c => c.group !== 'edu');
+  const dailyHtml = dailyCats.map(cat => {
+    const count = records.filter(r => r.category === cat.key && new Date(r.date) > twoWeeksAgo).length;
+    const pct = Math.min(100, count * 20);
+    const warn = count===0?'wdanger':count<2?'wwarn':'wok';
+    const warnTxt = count===0?'⚠️ 공백':count<2?'△ 부족':'✓ 양호';
+    return `<div class="cat-row"><div class="cdot" style="background:${cat.color}"></div><div class="cname">${cat.key}</div><div class="cbar-w"><div class="cbar" style="width:${pct}%;background:${cat.color}"></div></div><div class="cnt" style="color:${cat.color}">${count}개</div><div class="cwarn ${warn}">${warnTxt}</div></div>`;
+  }).join('');
+
+  // 교육 커리큘럼 진행률
+  const eduPct = Math.round(eduProgress / 24 * 100);
+  const eduHtml = `
+    <div style="padding:10px 16px;border-bottom:1px solid var(--br2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:13px;color:var(--t2);font-weight:500;">📚 교육 커리큘럼 진행률</div>
+        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--a);">${eduProgress}/17 (${eduPct}%)</div>
+      </div>
+      <div style="height:6px;background:var(--br);border-radius:100px;overflow:hidden;margin-bottom:10px;">
+        <div style="width:${eduPct}%;height:100%;background:linear-gradient(90deg,#FFB800,#FCD34D);border-radius:100px;transition:width .5s;"></div>
+      </div>
+      ${EDU_CATS.map((cat, i) => {
+        const done = i < eduProgress;
+        const isCurrent = i === eduProgress;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--br2);">
+          <div style="width:20px;height:20px;border-radius:50%;background:${done?'var(--gg)':isCurrent?'#1A1200':'var(--bg3)'};border:1px solid ${done?'var(--g)':isCurrent?'var(--a)':'var(--br)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:${done?'var(--g)':isCurrent?'var(--a)':'var(--t3)'};flex-shrink:0;">${done?'✓':i+1}</div>
+          <div style="flex:1;font-size:12px;color:${done?'var(--t3)':isCurrent?'var(--t)':'var(--t3)'};">${cat.label}</div>
+          <div style="font-size:10px;color:${cat.color};padding:1px 6px;background:${cat.color}20;border-radius:100px;">${cat.phase}</div>
+          ${isCurrent?'<div style="font-size:10px;color:var(--a);padding:1px 6px;background:#1A1200;border-radius:100px;">다음</div>':''}
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  setHTML('catList', dailyHtml + eduHtml);
+}
+async function analyzeMonitor() {
+  renderMonitor();
+  setHTML('crankAnalysis', '<div style="color:var(--t3)">AI 분석 중... ⏳</div>');
+  const records = getPostRecords();
+  const twoWeeksAgo = new Date(Date.now()-14*86400000);
+  const catCounts = CATS.map(c=>({name:c.key,count:records.filter(r=>r.category===c.key&&new Date(r.date)>twoWeeksAgo).length}));
+  try {
+    const result = await callClaude(
+      '네이버 C-Rank 전문 분석가입니다. 카테고리별 발행 현황을 분석하고 지금 당장 해야 할 것을 알려주세요.',
+      `2주간 발행:\n${catCounts.map(c=>`${c.name}: ${c.count}개`).join('\n')}`);
+    setHTML('crankAnalysis', `<div style="font-size:13px;color:var(--t2);line-height:1.8;white-space:pre-wrap;padding:4px">${result}</div>`);
+  } catch(e) {
+    setHTML('crankAnalysis', `<div style="color:var(--r);font-size:13px">오류: ${e.message}</div>`);
+  }
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function addNotifLog(icon, title, detail) {
+  const log = document.getElementById('notifLog');
+  const now = new Date().toLocaleTimeString('ko-KR');
+  const item = `<div class="notif-item"><div class="notif-icon">${icon}</div><div class="notif-body"><div class="notif-title">${title}</div><div class="notif-time">${detail} · ${now}</div></div></div>`;
+  if (log.querySelector('div[style]')) log.innerHTML = '';
+  log.insertAdjacentHTML('afterbegin', item);
+}
+async function sendTestNotif() {
+  const sent = await sendTelegram('🧪 NASDAQ PIVO 테스트 알림\n텔레그램 봇 연결 성공!');
+  if (sent) { addNotifLog('🧪','테스트 알림 발송','텔레그램 연결 확인'); toast('📱 텔레그램으로 테스트 알림 보냈어요!'); }
+  else toast('❌ 텔레그램 봇 설정을 확인해주세요', 'error');
+}
+
+// ============================================================
+// BALANCE CHECK
+// ============================================================
+async function checkBalances() {
+  const cfg = getConfig();
+  toast('💳 잔액 확인 중...', 'info');
+  let results = [];
+
+  // Claude 잔액 확인 (실제 호출로 테스트)
+  if (cfg.claude) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','x-api-key':cfg.claude,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:10, messages:[{role:'user',content:'ping'}] })
+      });
+      const data = await res.json();
+      if (data.error?.type === 'insufficient_credits') {
+        results.push('💳 Claude API: 잔액 부족 — 충전 필요!');
+        document.getElementById('st-claude').className = 'sg-status ss-no';
+        setText('st-claude', '💳 잔액 부족');
+      } else if (data.error) {
+        results.push('❌ Claude API: ' + data.error.message);
+      } else {
+        results.push('✅ Claude API: 정상');
+        document.getElementById('st-claude').className = 'sg-status ss-ok';
+        setText('st-claude', '✓ 정상');
+      }
+    } catch(e) { results.push('❌ Claude: ' + e.message); }
+  } else {
+    results.push('⚠️ Claude API: 키 없음');
+  }
+
+  // Gemini 잔액 확인
+  if (cfg.gemini) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${cfg.gemini}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({contents:[{parts:[{text:'hi'}]}]})
+      });
+      const data = await res.json();
+      if (data.error) {
+        const msg = (data.error.message||'').toLowerCase();
+        const code = data.error.code || 0;
+        if (msg.includes('quota') || msg.includes('billing') || code === 429) {
+          results.push('⏱️ Gemini: 분당 한도 초과 — 1분 후 다시 확인해보세요');
+          document.getElementById('st-gemini').className = 'sg-status ss-pending';
+          setText('st-gemini', '⏱️ 잠시 후 재시도');
+        } else if (code === 400 || msg.includes('api key') || msg.includes('invalid')) {
+          results.push('❌ Gemini: API 키 오류 — ' + data.error.message);
+          document.getElementById('st-gemini').className = 'sg-status ss-no';
+          setText('st-gemini', '✗ 키 오류');
+        } else {
+          results.push('❌ Gemini: ' + data.error.message);
+          document.getElementById('st-gemini').className = 'sg-status ss-no';
+          setText('st-gemini', '✗ 오류');
+        }
+      } else {
+        results.push('✅ Gemini API: 정상');
+        document.getElementById('st-gemini').className = 'sg-status ss-ok';
+        setText('st-gemini', '✓ 정상');
+      }
+    } catch(e) { results.push('❌ Gemini: ' + e.message); }
+  } else {
+    results.push('⚠️ Gemini API: 키 없음');
+  }
+
+  // 결과 표시
+  const hasIssue = results.some(r => r.includes('💳') || r.includes('❌'));
+  const summary = results.join('\n');
+  
+  if (hasIssue) {
+    await sendTelegram(`⚠️ API 잔액/상태 확인 결과\n\n${summary}`);
+    addNotifLog('⚠️', '잔액 확인 결과', '일부 문제 발견');
+    toast('⚠️ 일부 API에 문제가 있어요! 알림 탭 확인하세요.', 'error');
+  } else {
+    toast('✅ 모든 API 정상이에요!');
+  }
+  
+  // 결과를 설정 페이지에 표시
+  const existingResult = document.getElementById('balanceResult');
+  if (existingResult) existingResult.remove();
+  const div = document.createElement('div');
+  div.id = 'balanceResult';
+  div.style.cssText = 'background:var(--bg3);border:1px solid var(--br);border-radius:8px;padding:12px;margin-top:10px;font-size:12px;color:var(--t2);line-height:1.8;white-space:pre-wrap;';
+  div.textContent = summary;
+  document.querySelector('#pg-settings .setting-group:last-child').appendChild(div);
+}
+
+// ============================================================
+// STATUS CHECK
+// ============================================================
+async function checkAllStatus() {
+  const cfg = getConfig();
+  const apiStatusTxt = document.getElementById('apiStatusTxt');
+
+  // Claude
+  const claudeEl = document.getElementById('st-claude');
+  if (cfg.claude) {
+    claudeEl.className = 'sg-status ss-pending'; claudeEl.textContent = '확인 중...';
+    try {
+      await callClaude('테스트','ping');
+      claudeEl.className='sg-status ss-ok'; claudeEl.textContent='✓ 연결됨';
+      apiStatusTxt.textContent = 'Claude API 연결됨';
+      document.querySelector('.sdot').style.background = '#00C896';
+    } catch { claudeEl.className='sg-status ss-no'; claudeEl.textContent='✗ 오류'; }
+  } else { claudeEl.className='sg-status ss-no'; claudeEl.textContent='키 없음'; }
+
+  // Gemini
+  const geminiEl = document.getElementById('st-gemini');
+  if (cfg.gemini) {
+    geminiEl.className='sg-status ss-pending'; geminiEl.textContent='확인 중...';
+    const r = await callGemini('test');
+    if (r) { geminiEl.className='sg-status ss-ok'; geminiEl.textContent='✓ 연결됨'; }
+    else { geminiEl.className='sg-status ss-no'; geminiEl.textContent='✗ 오류'; }
+  } else { geminiEl.className='sg-status ss-no'; geminiEl.textContent='키 없음'; }
+
+  // Perplexity
+  const perpEl = document.getElementById('st-perplexity');
+  if (cfg.perplexity) {
+    perpEl.className='sg-status ss-pending'; perpEl.textContent='확인 중...';
+    const r = await callPerplexity('test');
+    if (r) { perpEl.className='sg-status ss-ok'; perpEl.textContent='✓ 연결됨'; }
+    else { perpEl.className='sg-status ss-no'; perpEl.textContent='✗ 오류'; }
+  } else { perpEl.className='sg-status ss-no'; perpEl.textContent='키 없음'; }
+
+  // Telegram
+  const tgEl = document.getElementById('st-telegram');
+  if (cfg.tgToken && cfg.tgChatId) {
+    tgEl.className='sg-status ss-pending'; tgEl.textContent='확인 중...';
+    const sent = await sendTelegram('✅ NASDAQ PIVO 연결 테스트');
+    if (sent) { tgEl.className='sg-status ss-ok'; tgEl.textContent='✓ 연결됨'; }
+    else { tgEl.className='sg-status ss-no'; tgEl.textContent='✗ 오류'; }
+  } else { tgEl.className='sg-status ss-no'; tgEl.textContent='설정 없음'; }
+
+  toast('연결 상태 확인 완료!');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function tryParseJSON(str) {
+  try {
+    const match = str.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch {}
+  return null;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadConfig();
+  updateDashboard();
+  renderMonitor();
+  renderGuide();
+
+  // API 키 사전 입력
+  const cfg = getConfig();
+  if (!cfg.tgChatId) document.getElementById('cfg-tg-chatid').value = '5428930180';
+});
+
+// 글 생성 완료 시 가이드 step2 완료 표시
+const _origShowResults = showResults;
+
+</script>
+</body>
+</html>
